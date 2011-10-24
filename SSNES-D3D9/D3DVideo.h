@@ -7,6 +7,7 @@
 #include <Cg/cgD3D9.h>
 #include <tchar.h>
 #include <string>
+#include <vector>
 
 #define FVF (D3DFVF_XYZ | D3DFVF_TEX1)
 
@@ -120,6 +121,8 @@ class D3DVideo
 			RenderPass(const RenderPass&);
 			void operator=(const RenderPass&);
 		};
+
+		std::vector<RenderPass> passes;
 };
 
 

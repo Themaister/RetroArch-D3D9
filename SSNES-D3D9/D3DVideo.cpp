@@ -23,6 +23,10 @@ namespace Callback
 	{
 		switch (message)
 		{
+		case WM_SYSKEYDOWN:
+			if (wParam == VK_F10)
+				return 0;
+			break;
 		case WM_QUIT:
 		case WM_DESTROY:
 			PostQuitMessage(0);
@@ -32,7 +36,9 @@ namespace Callback
 		default:
 			return DefWindowProc(hWnd, message, wParam, lParam);
 		}
+		return DefWindowProc(hWnd, message, wParam, lParam);
 	}
+	
 }
 
 namespace Global

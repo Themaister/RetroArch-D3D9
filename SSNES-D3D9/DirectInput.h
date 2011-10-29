@@ -20,10 +20,9 @@ class DirectInput
 		IDirectInputDevice8 *keyboard;
 
 		int joypad_indices[5];
-		IDirectInputDevice8 *joypad[5];
-		unsigned joypad_cnt;
-
 		DIJOYSTATE2 joy_state[5];
+
+		std::vector<IDirectInputDevice8*> joypad;
 
 		float thres;
 };

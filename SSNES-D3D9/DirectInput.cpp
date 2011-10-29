@@ -2,6 +2,7 @@
 #include "DirectInput.h"
 
 #include <algorithm>
+#include <iterator>
 #include <iostream>
 #include "keysym.h"
 #include "D3DVideo.h"
@@ -124,12 +125,10 @@ namespace Map
 }
 
 DirectInput::DirectInput(const int joypad_index[5], float threshold) :
-	ctx(NULL), keyboard(NULL), joypad_cnt(0), thres(threshold)
+	ctx(nullptr), keyboard(nullptr), thres(threshold)
 {
 	std::fill(di_state, di_state + 256, 0);
-	keyboard = NULL;
-	for (unsigned i = 0; i < 5; i++)
-		joypad[i] = NULL;
+	
 	std::copy(joypad_index, joypad_index + 5, joypad_indices);
 
 	if (FAILED(DirectInput8Create(
@@ -163,32 +162,24 @@ DirectInput::DirectInput(const int joypad_index[5], float threshold) :
 
 BOOL DirectInput::init_joypad(const DIDEVICEINSTANCE *instance)
 {
-	unsigned active = 0;
-	unsigned n;
-	for (n = 0; n < 5; n++)
+	IDirectInputDevice8 *dev = nullptr;
+	if (FAILED(ctx->CreateDevice(instance->guidInstance, &dev, NULL)))
 	{
-		if (!joypad[n] && joypad_indices[n] == joypad_cnt)
-			break;
-
-		if (joypad[n])
-			active++;
-	}
-	if (active == 5) return DIENUM_STOP;
-
-	joypad_cnt++;
-	if (FAILED(ctx->CreateDevice(instance->guidInstance, &joypad[n], NULL)))
+		joypad.push_back(nullptr);
 		return DIENUM_CONTINUE;
+	}
 
-	std::cerr << "[DirectInput]: Bound joypad ... " << joypad_cnt << std::endl;
+	joypad.push_back(dev);
 
-	joypad[n]->SetDataFormat(&c_dfDIJoystick2);
-	joypad[n]->SetCooperativeLevel(D3DVideo::hwnd(), 
-		DISCL_NONEXCLUSIVE | DISCL_FOREGROUND);
+	if (dev)
+	{
+		dev->SetDataFormat(&c_dfDIJoystick2);
+		dev->SetCooperativeLevel(D3DVideo::hwnd(), 
+			DISCL_NONEXCLUSIVE | DISCL_FOREGROUND);
 
-	joypad[n]->EnumObjects(Callback::EnumAxes, 
-		reinterpret_cast<void*>(joypad[n]), DIDFT_ABSAXIS);
-
-	return DIENUM_CONTINUE;
+		dev->EnumObjects(Callback::EnumAxes, dev, DIDFT_ABSAXIS);
+	}
+	return (joypad.size() < static_cast<size_t>(5)) ? DIENUM_CONTINUE : DIENUM_STOP;
 }
 
 DirectInput::~DirectInput()
@@ -199,41 +190,38 @@ DirectInput::~DirectInput()
 		keyboard->Release();
 	}
 
-	for (unsigned i = 0; i < 5; i++)
-	{
-		if (joypad[i])
-		{
-			joypad[i]->Unacquire();
-			joypad[i]->Release();
-		}
-	}
+	std::for_each(std::begin(joypad), std::end(joypad), [](IDirectInputDevice8 *dev) {
+		if (dev)
+			dev->Release();
+	});
 	
 	if (ctx)
 		ctx->Release();
 }
 
-int DirectInput::state(const struct ssnes_keybind* bind, unsigned player)
+int DirectInput::state(const struct ssnes_keybind* bind, unsigned player_)
 {
 	int ret = di_state[Map::sdl_to_di_lut[bind->key]] & 0x80 ? 1 : 0;
 	if (ret)
 		return ret;
 
-	if (!joypad[player - 1])
+	int player = joypad_indices[player_ - 1];
+
+	if (player < 0 || player >= joypad.size() || !joypad[player])
 		return 0;
-
-
+	
 	if (bind->joykey != SSNES_NO_BTN)
 	{
 		if (!SSNES_GET_HAT_DIR(bind->joykey))
 		{
-			int ret = joy_state[player - 1].rgbButtons[bind->joykey] ? 1 : 0;
+			int ret = joy_state[player].rgbButtons[bind->joykey] ? 1 : 0;
 			if (ret)
 				return ret;
 		}
 		else
 		{
 			unsigned hat = SSNES_GET_HAT(bind->joykey);
-			unsigned pov = joy_state[player - 1].rgdwPOV[hat];
+			unsigned pov = joy_state[player].rgdwPOV[hat];
 			if (pov < 36000)
 			{
 				bool retval = false;
@@ -266,33 +254,33 @@ int DirectInput::state(const struct ssnes_keybind* bind, unsigned player)
 		switch (SSNES_AXIS_NEG_GET(bind->joyaxis))
 		{
 		case 0:
-			return joy_state[player - 1].lX <= min;
+			return joy_state[player].lX <= min;
 		case 1:
-			return joy_state[player - 1].lY <= min;
+			return joy_state[player].lY <= min;
 		case 2:
-			return joy_state[player - 1].lZ <= min;
+			return joy_state[player].lZ <= min;
 		case 3:
-			return joy_state[player - 1].lRx <= min;
+			return joy_state[player].lRx <= min;
 		case 4:
-			return joy_state[player - 1].lRy <= min;
+			return joy_state[player].lRy <= min;
 		case 5:
-			return joy_state[player - 1].lRz <= min;
+			return joy_state[player].lRz <= min;
 		}
 
 		switch (SSNES_AXIS_POS_GET(bind->joyaxis))
 		{
 		case 0:
-			return joy_state[player - 1].lX >= max;
+			return joy_state[player].lX >= max;
 		case 1:
-			return joy_state[player - 1].lY >= max;
+			return joy_state[player].lY >= max;
 		case 2:
-			return joy_state[player - 1].lZ >= max;
+			return joy_state[player].lZ >= max;
 		case 3:
-			return joy_state[player - 1].lRx >= max;
+			return joy_state[player].lRx >= max;
 		case 4:
-			return joy_state[player - 1].lRy >= max;
+			return joy_state[player].lRy >= max;
 		case 5:
-			return joy_state[player - 1].lRz >= max;
+			return joy_state[player].lRz >= max;
 		}
 	}
 
@@ -310,7 +298,9 @@ void DirectInput::poll()
 	}
 
 	ZeroMemory(&joy_state, sizeof(joy_state));
-	for (unsigned i = 0; i < 5; i++)
+
+	size_t size = min(5, joypad.size());
+	for (size_t i = 0; i < size; i++)
 	{
 		if (joypad[i])
 		{

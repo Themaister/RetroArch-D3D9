@@ -92,6 +92,9 @@ namespace Map
 		{ SK_BACKSPACE, DIK_BACKSPACE },
 		{ SK_SPACE, DIK_SPACE },
 
+		{ SK_RSHIFT, DIK_RSHIFT },
+		{ SK_LSHIFT, DIK_LSHIFT },
+
 		{ SK_0, DIK_0 },
 		{ SK_1, DIK_1 },
 		{ SK_2, DIK_2 },

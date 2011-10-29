@@ -24,8 +24,12 @@ namespace Callback
 		switch (message)
 		{
 		case WM_SYSKEYDOWN:
-			if (wParam == VK_F10)
+			switch (wParam)
+			{
+			case VK_F10:
+			case VK_RSHIFT:
 				return 0;
+			}
 			break;
 		case WM_QUIT:
 		case WM_DESTROY:

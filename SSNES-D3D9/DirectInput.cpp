@@ -175,12 +175,11 @@ BOOL DirectInput::init_joypad(const DIDEVICEINSTANCE *instance)
 	}
 	if (active == 5) return DIENUM_STOP;
 
+	joypad_cnt++;
 	if (FAILED(ctx->CreateDevice(instance->guidInstance, &joypad[n], NULL)))
 		return DIENUM_CONTINUE;
 
-	joypad_cnt++;
-
-	std::cerr << "Bound joypad ... " << joypad_cnt << std::endl;
+	std::cerr << "[DirectInput]: Bound joypad ... " << joypad_cnt << std::endl;
 
 	joypad[n]->SetDataFormat(&c_dfDIJoystick2);
 	joypad[n]->SetCooperativeLevel(D3DVideo::hwnd(), 

@@ -1,0 +1,4 @@
+{
+   global: ssnes_*;
+   local: *;
+};

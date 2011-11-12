@@ -559,7 +559,7 @@ void D3DVideo::deinit_cg()
    }
 }
 
-   template <class T>
+template <class T>
 void D3DVideo::set_cg_param(CGprogram prog, const char *param, const T& val)
 {
    CGparameter cgp = cgGetNamedParameter(prog, param);

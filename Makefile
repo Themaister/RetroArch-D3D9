@@ -4,16 +4,16 @@ SOURCES := $(wildcard *.cpp)
 OBJECTS := $(SOURCES:.cpp=.o)
 
 ifeq ($(D3D_INCLUDE_DIR),)
-   $(error "D3D_INCLUDE_DIR is not defined.")
+   $(error "D3D_INCLUDE_DIR is not defined. You will most likely need to have D3D SDK installed.")
 endif
 ifeq ($(D3D_LIB_DIR),)
-   $(error "D3D_LIB_DIR is not defined.")
+   $(error "D3D_LIB_DIR is not defined. Point it to MinGW lib dir if it provides D3D import libs.")
 endif
 ifeq ($(CG_INCLUDE_DIR),)
    $(error "CG_INCLUDE_DIR is not defined.")
 endif
 ifeq ($(CG_LIB_DIR),)
-   $(error "CG_LIB_DIR is not defined.")
+   $(error "CG_LIB_DIR is not defined. Point this to bin/ or bin.x64/. Import libs might break.")
 endif
 
 CXX = g++

@@ -128,7 +128,6 @@ DirectInput::DirectInput(const int joypad_index[5], float threshold) :
    ctx(nullptr), keyboard(nullptr), thres(threshold)
 {
    std::fill(di_state, di_state + 256, 0);
-
    std::copy(joypad_index, joypad_index + 5, joypad_indices);
 
    if (FAILED(DirectInput8Create(

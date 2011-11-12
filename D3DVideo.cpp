@@ -311,8 +311,6 @@ D3DVideo::D3DVideo(const ssnes_video_info_t *info) :
    video_info = *info;
    init(video_info);
 
-   clear();
-
    std::cerr << "[Direct3D]: Good to go!" << std::endl;
 
    // Init FPS count.
@@ -490,13 +488,6 @@ void D3DVideo::clear_texture()
       std::memset(d3dlr.pBits, 0, tex_h * d3dlr.Pitch);
       tex->UnlockRect(0);
    }
-}
-
-void D3DVideo::clear()
-{
-   clear_texture();
-   dev->Clear(0, 0, D3DCLEAR_TARGET, BLACK, 1.0f, 0);
-   dev->Present(0, 0, 0, 0);
 }
 
 bool D3DVideo::init_cg(const char *path)

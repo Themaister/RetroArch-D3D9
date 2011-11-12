@@ -73,7 +73,6 @@ class D3DVideo
       bool nonblock;
       bool needs_restore;
       bool dwm_enabled;
-      void clear();
       void clear_texture();
       bool restore();
 

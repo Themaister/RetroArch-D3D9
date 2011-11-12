@@ -18,12 +18,12 @@ endif
 
 CXX = g++
 
-INCDIRS := -I. -I$(CG_INCLUDE_DIR) -I$(D3D_INCLUDE_DIR)
-LIBDIRS := -L$(CG_LIB_DIR) -L$(D3D_LIB_DIR)
+INCDIRS := -I. -I"$(CG_INCLUDE_DIR)" -I"$(D3D_INCLUDE_DIR)"
+LIBDIRS := -L"$(CG_LIB_DIR)" -L"$(D3D_LIB_DIR)"
 
 LIBS := -ld3d9 -lcg -lcgD3D9 -ld3dx9 -ldxguid -ldinput8
 
-CXXFLAGS += -O3 -std=gnu++0x
+CXXFLAGS += -O3 -std=gnu++0x -fcheck-new
 LDFLAGS += -shared -Wl,--version-script=link.T -static-libgcc -static-libstdc++ -s
 
 all: $(TARGET)

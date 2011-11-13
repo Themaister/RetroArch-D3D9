@@ -54,7 +54,7 @@ static void* input_init(const int joypad_index[5], float axis_thres)
    {
       return new DirectInput(joypad_index, axis_thres);
    }
-   catch (std::exception& e) 
+   catch (const std::exception& e) 
    {
       std::cerr << e.what() << std::endl;
       return nullptr;

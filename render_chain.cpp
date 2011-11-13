@@ -51,37 +51,110 @@ void RenderChain::clear()
    passes.clear();
 }
 
-void RenderChain::add_pass(const LinkInfo &)
-{}
+void RenderChain::add_pass(const LinkInfo &info)
+{
+   Pass pass;
+   pass.info = info;
+   pass.last_width = 0;
+   pass.last_height = 0;
+
+   compile_shaders(pass, info.shader_path);
+
+   if (FAILED(dev->CreateVertexBuffer(
+               4 * sizeof(Vertex),
+               0,
+               FVF,
+               D3DPOOL_DEFAULT,
+               &pass.vertex_buf,
+               nullptr)))
+   {
+      throw std::runtime_error("Failed to create Vertex buf ...");
+   }
+
+   if (FAILED(dev->CreateTexture(info.tex_w, info.tex_h, 1, D3DUSAGE_RENDERTARGET,
+               D3DFMT_X8R8G8B8,
+               D3DPOOL_DEFAULT,
+               &pass.tex, nullptr)))
+   {
+      throw std::runtime_error("Failed to create texture ...");
+   }
+
+   dev->SetTexture(0, pass.tex);
+   dev->SetSamplerState(0, D3DSAMP_MINFILTER,
+         info.filter_linear ? D3DTEXF_LINEAR : D3DTEXF_POINT);
+   dev->SetSamplerState(0, D3DSAMP_MAGFILTER,
+         info.filter_linear ? D3DTEXF_LINEAR : D3DTEXF_POINT);
+   dev->SetSamplerState(0, D3DSAMP_ADDRESSU, D3DTADDRESS_BORDER);
+   dev->SetSamplerState(0, D3DSAMP_ADDRESSV, D3DTADDRESS_BORDER);
+   dev->SetRenderState(D3DRS_LIGHTING, FALSE);
+   dev->SetTexture(0, nullptr);
+
+   passes.push_back(pass);
+}
 
 // TODO: Multipass.
 bool RenderChain::render(const void *data,
       unsigned width, unsigned height, unsigned pitch)
 {
+   unsigned current_width = width, current_height = height;
    unsigned out_width, out_height;
    convert_geometry(passes[0].info, out_width, out_height,
-         width, height);
+         current_width, current_height);
 
    blit_to_texture(data, width, height, pitch);
 
-   set_viewport(final_viewport);
-   set_vertices(passes[0],
-            width, height,
-            out_width, out_height,
-            final_viewport.Width, final_viewport.Height,
-            true);
-   set_shaders(passes[0]);
+   // Grab back buffer.
+   IDirect3DSurface9 *back_buffer;
+   dev->GetRenderTarget(0, &back_buffer);
 
-   dev->Clear(0, 0, D3DCLEAR_TARGET, 0, 1, 0);
-   if (SUCCEEDED(dev->BeginScene()))
+   // In-between render target passes.
+   for (unsigned i = 0; i < passes.size() - 1; i++)
    {
-      dev->SetTexture(0, passes[0].tex);
-      dev->SetFVF(FVF);
-      dev->SetStreamSource(0, passes[0].vertex_buf, 0, sizeof(Vertex));
+      Pass &from_pass = passes[i];
+      Pass &to_pass = passes[i + 1];
 
-      dev->DrawPrimitive(D3DPT_TRIANGLESTRIP, 0, 2);
-      dev->EndScene();
+      IDirect3DSurface9 *target;
+      to_pass.tex->GetSurfaceLevel(0, &target);
+      dev->SetRenderTarget(0, target);
+
+      convert_geometry(from_pass.info,
+            out_width, out_height,
+            current_width, current_height);
+
+      D3DVIEWPORT9 viewport = {0};
+      viewport.X = 0;
+      viewport.Y = 0;
+      viewport.Width = out_width;
+      viewport.Height = out_height;
+      viewport.MinZ = 0.0f;
+      viewport.MaxZ = 1.0f;
+      set_viewport(viewport);
+
+      set_vertices(from_pass,
+            current_width, current_height,
+            out_width, out_height,
+            out_width, out_height);
+      set_shaders(from_pass);
+      render_pass(from_pass);
+
+      current_width = out_width;
+      current_height = out_height;
    }
+
+   // Final pass
+   dev->SetRenderTarget(0, back_buffer);
+   Pass &last_pass = passes.back();
+
+   convert_geometry(last_pass.info,
+         out_width, out_height,
+         current_width, current_height);
+   set_viewport(final_viewport);
+   set_vertices(last_pass,
+            current_width, current_height,
+            out_width, out_height,
+            final_viewport.Width, final_viewport.Height);
+   set_shaders(last_pass);
+   render_pass(last_pass);
 
    frame_count++;
    return true;
@@ -105,7 +178,7 @@ void RenderChain::create_first_pass(const LinkInfo &info, PixelFormat fmt)
                FVF,
                D3DPOOL_DEFAULT,
                &pass.vertex_buf,
-               NULL)))
+               nullptr)))
    {
       throw std::runtime_error("Failed to create Vertex buf ...");
    }
@@ -113,7 +186,7 @@ void RenderChain::create_first_pass(const LinkInfo &info, PixelFormat fmt)
    if (FAILED(dev->CreateTexture(info.tex_w, info.tex_h, 1, 0,
                fmt == RGB15 ? D3DFMT_X1R5G5B5 : D3DFMT_X8R8G8B8,
                D3DPOOL_MANAGED,
-               &pass.tex, NULL)))
+               &pass.tex, nullptr)))
    {
       throw std::runtime_error("Failed to create texture ...");
    }
@@ -139,26 +212,37 @@ void RenderChain::compile_shaders(Pass &pass, const std::string &shader)
    const char **fragment_opts = cgD3D9GetOptimalOptions(fragment_profile);
    const char **vertex_opts = cgD3D9GetOptimalOptions(vertex_profile);
 
-   //std::string list_f;
-   //std::string list_v;
-
    if (shader.length() > 0)
    {
       std::cerr << "[Direct3D Cg]: Compiling shader: " << shader << std::endl;
       pass.fPrg = cgCreateProgramFromFile(cgCtx, CG_SOURCE,
             shader.c_str(), fragment_profile, "main_fragment", fragment_opts);
 
+      if (cgGetLastListing(cgCtx))
+         std::cerr << "Fragment error: " << std::endl <<
+            cgGetLastListing(cgCtx) << std::endl;
+
       pass.vPrg = cgCreateProgramFromFile(cgCtx, CG_SOURCE,
             shader.c_str(), vertex_profile, "main_vertex", vertex_opts);
+
+      if (cgGetLastListing(cgCtx))
+         std::cerr << "Vertex error: " << std::endl <<
+            cgGetLastListing(cgCtx) << std::endl;
    }
    else
    {
-      std::cerr << "[Direct3D Cg]: Compiling stock shader: " << std::endl;
+      std::cerr << "[Direct3D Cg]: Compiling stock shader" << std::endl;
 
       pass.fPrg = cgCreateProgram(cgCtx, CG_SOURCE, Global::stock_program,
             fragment_profile, "main_fragment", fragment_opts);
+      if (cgGetLastListing(cgCtx))
+         std::cerr << "Fragment error: " << std::endl <<
+            cgGetLastListing(cgCtx) << std::endl;
       pass.vPrg = cgCreateProgram(cgCtx, CG_SOURCE, Global::stock_program,
-            fragment_profile, "main_vertex", fragment_opts);
+            vertex_profile, "main_vertex", vertex_opts);
+      if (cgGetLastListing(cgCtx))
+         std::cerr << "Vertex error: " << std::endl <<
+            cgGetLastListing(cgCtx) << std::endl;
    }
 
    if (!pass.fPrg || !pass.vPrg)
@@ -177,8 +261,7 @@ void RenderChain::set_shaders(Pass &pass)
 void RenderChain::set_vertices(Pass &pass,
       unsigned width, unsigned height,
       unsigned out_width, unsigned out_height,
-      unsigned vp_width, unsigned vp_height,
-      bool final)
+      unsigned vp_width, unsigned vp_height)
 {
    const LinkInfo &info = pass.info;
 
@@ -206,27 +289,16 @@ void RenderChain::set_vertices(Pass &pass,
       vert[1].u = _u;
       vert[2].u = 0.0f;
       vert[3].u = _u;
-      vert[0].v = _v;
-      vert[1].v = _v;
-      vert[2].v = 0;
-      vert[3].v = 0;
+      vert[0].v = 0;
+      vert[1].v = 0;
+      vert[2].v = _v;
+      vert[3].v = _v;
 
-      if (final) // Render directly to screen, have to flip.
+      // Align texels and vertices.
+      for (unsigned i = 0; i < 4; i++)
       {
-         for (unsigned i = 0; i < 4; i++)
-         {
-            vert[i].v = _v - vert[i].v;
-            vert[i].x -= 0.5f;
-            vert[i].y += 0.5f;
-         }
-      }
-      else
-      {
-         for (unsigned i = 0; i < 4; i++)
-         {
-            vert[i].x -= 0.5f;
-            vert[i].y -= 0.5f;
-         }
+         vert[i].x -= 0.5f;
+         vert[i].y += 0.5f;
       }
 
       void *verts;
@@ -363,6 +435,20 @@ void RenderChain::blit_to_texture(const void *frame,
       }
 
       passes[0].tex->UnlockRect(0);
+   }
+}
+
+void RenderChain::render_pass(Pass &pass)
+{
+   dev->Clear(0, 0, D3DCLEAR_TARGET, 0, 1, 0);
+   if (SUCCEEDED(dev->BeginScene()))
+   {
+      dev->SetTexture(0, pass.tex);
+      dev->SetFVF(FVF);
+      dev->SetStreamSource(0, pass.vertex_buf, 0, sizeof(Vertex));
+
+      dev->DrawPrimitive(D3DPT_TRIANGLESTRIP, 0, 2);
+      dev->EndScene();
    }
 }
 

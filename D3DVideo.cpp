@@ -372,12 +372,12 @@ bool D3DVideo::init_chain(const ssnes_video_info_t &video_info)
 {
    LinkInfo info = {0}; 
    info.shader_path = video_info.cg_shader ? video_info.cg_shader : "";
-   info.scale_x = info.scale_y = 1.0f;
+   info.scale_x = info.scale_y = 2.0f;
    info.filter_linear = video_info.smooth;
    info.tex_w = info.tex_h = 256 * video_info.input_scale;
 
-   info.scale_type_x = LinkInfo::Viewport;
-   info.scale_type_y = LinkInfo::Viewport;
+   info.scale_type_x = LinkInfo::Relative;
+   info.scale_type_y = LinkInfo::Relative;
 
    try
    {
@@ -386,9 +386,19 @@ bool D3DVideo::init_chain(const ssnes_video_info_t &video_info)
                video_info.color_format == SSNES_COLOR_FORMAT_XRGB1555 ?
                RenderChain::RGB15 : RenderChain::ARGB,
                final_viewport));
+
+      info.shader_path = "";
+      info.filter_linear = true;
+      info.tex_w = info.tex_h = 512 * video_info.input_scale;
+
+      info.scale_x = info.scale_y = 1.0f;
+      info.scale_type_x = LinkInfo::Viewport;
+      info.scale_type_y = LinkInfo::Viewport;
+      chain->add_pass(info);
    }
-   catch (...)
+   catch (const std::exception &e)
    {
+      std::cerr << "[Direct3D]: Render chain error: " << e.what() << std::endl;
       return false;
    }
 

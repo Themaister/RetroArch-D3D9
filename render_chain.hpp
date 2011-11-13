@@ -63,8 +63,7 @@ class RenderChain
       void set_vertices(Pass &pass,
             unsigned width, unsigned height,
             unsigned out_width, unsigned out_height,
-            unsigned vp_width, unsigned vp_height,
-            bool final);
+            unsigned vp_width, unsigned vp_height);
       void set_viewport(const D3DVIEWPORT9 &vp);
 
       void set_shaders(Pass &pass);
@@ -83,6 +82,8 @@ class RenderChain
       void blit_to_texture(const void *data,
             unsigned width, unsigned height,
             unsigned pitch);
+
+      void render_pass(Pass &pass);
 };
 
 #endif

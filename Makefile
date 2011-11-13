@@ -26,6 +26,7 @@ LIBDIRS := -L"$(CG_LIB_DIR)" -L"$(D3D_LIB_DIR)"
 
 LIBS := -ld3d9 -lcg -lcgD3D9 -ld3dx9 -ldxguid -ldinput8
 
+CFLAGS += -O3 -std=gnu99 -Wall -pedantic
 CXXFLAGS += -O3 -std=gnu++0x -fcheck-new
 LDFLAGS += -shared -Wl,--version-script=link.T -Wl,--no-undefined -static-libgcc -static-libstdc++ -s
 

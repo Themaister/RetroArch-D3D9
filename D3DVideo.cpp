@@ -1,6 +1,7 @@
 
 #include "D3DVideo.h"
 #include "render_chain.hpp"
+#include "config_file.hpp"
 
 #include <iostream>
 #include <exception>
@@ -384,16 +385,243 @@ void D3DVideo::init_chain_singlepass(const ssnes_video_info_t &video_info)
                final_viewport));
 }
 
-void D3DVideo::init_chain_multipass(const ssnes_video_info_t &)
+static inline uint32_t next_pot(uint32_t v)
 {
-   throw std::runtime_error("Not implemented yet!");
+   v--;
+   v |= v >> 1;
+   v |= v >> 2;
+   v |= v >> 4;
+   v |= v >> 8;
+   v |= v >> 16;
+   v++;
+   return v;
+}
+
+void D3DVideo::init_chain_multipass(const ssnes_video_info_t &info)
+{
+   ConfigFile conf(info.cg_shader);
+
+   int shaders;
+   if (!conf.get("shaders", shaders))
+      throw std::runtime_error("Couldn't find \"shaders\" in meta-shader");
+
+   if (shaders < 1)
+      throw std::runtime_error("Must have at least one shader!");
+
+   std::string basedir = info.cg_shader;
+   size_t pos = basedir.rfind('/');
+   if (pos == std::string::npos)
+      pos = basedir.rfind('\\');
+   if (pos != std::string::npos)
+      basedir.replace(basedir.begin() + pos + 1, basedir.end(), "");
+
+   bool use_extra_pass = false;
+   bool use_first_pass_only = false;
+
+   std::vector<std::string> shader_paths;
+   std::vector<LinkInfo::ScaleType> scale_types_x;
+   std::vector<LinkInfo::ScaleType> scale_types_y;
+   std::vector<float> scales_x;
+   std::vector<float> scales_y;
+   std::vector<unsigned> abses_x;
+   std::vector<unsigned> abses_y;
+   std::vector<bool> filters;
+
+   // Shader paths.
+   for (int i = 0; i < shaders; i++)
+   {
+      char buf[256];
+      snprintf(buf, sizeof(buf), "shader%d", i);
+
+      std::string relpath;
+      if (!conf.get(buf, relpath))
+         throw std::runtime_error("Couldn't locate shader path in meta-shader");
+
+      shader_paths.push_back(basedir);
+      shader_paths.back() += relpath;
+   }
+
+   // Dimensions.
+   for (int i = 0; i < shaders; i++)
+   {
+      char attr_type[64];
+      char attr_type_x[64];
+      char attr_type_y[64];
+      char attr_scale[64];
+      char attr_scale_x[64];
+      char attr_scale_y[64];
+      int abs_x = 256 * info.input_scale;
+      int abs_y = 256 * info.input_scale;
+      double scale_x = 1.0f;
+      double scale_y = 1.0f;
+
+      std::string attr   = "source";
+      std::string attr_x = "source";
+      std::string attr_y = "source";
+      snprintf(attr_type,    sizeof(attr_type),    "scale_type%d", i);
+      snprintf(attr_type_x,  sizeof(attr_type_x),  "scale_type_x%d", i);
+      snprintf(attr_type_y,  sizeof(attr_type_x),  "scale_type_y%d", i);
+      snprintf(attr_type,    sizeof(attr_scale),   "scale%d", i);
+      snprintf(attr_scale_x, sizeof(attr_scale_x), "scale_x%d", i);
+      snprintf(attr_scale_y, sizeof(attr_scale_y), "scale_y%d", i);
+
+      bool has_scale = false;
+
+      if (conf.get(attr_type, attr))
+      {
+         attr_x = attr_y = attr;
+         has_scale = true;
+      }
+      else
+      {
+         if (conf.get(attr_type_x, attr))
+            has_scale = true;
+         if (conf.get(attr_type_y, attr))
+            has_scale = true;
+      }
+
+      if (attr_x == "source")
+         scale_types_x.push_back(LinkInfo::Relative);
+      else if (attr_x == "viewport")
+         scale_types_x.push_back(LinkInfo::Viewport);
+      else if (attr_x == "absolute")
+         scale_types_x.push_back(LinkInfo::Absolute);
+      else
+         throw std::runtime_error("Invalid scale_type_x!");
+
+      if (attr_y == "source")
+         scale_types_y.push_back(LinkInfo::Relative);
+      else if (attr_y == "viewport")
+         scale_types_y.push_back(LinkInfo::Viewport);
+      else if (attr_y == "absolute")
+         scale_types_y.push_back(LinkInfo::Absolute);
+      else
+         throw std::runtime_error("Invalid scale_type_y!");
+      
+      double scale;
+      if (conf.get(attr_scale, scale))
+         scale_x = scale_y = scale;
+      else
+      {
+         conf.get(attr_scale_x, scale_x);
+         conf.get(attr_scale_y, scale_y);
+      }
+
+      int absolute;
+      if (conf.get(attr_scale, absolute))
+         abs_x = abs_y = absolute;
+      else
+      {
+         conf.get(attr_scale_x, abs_x);
+         conf.get(attr_scale_y, abs_y);
+      }
+
+      scales_x.push_back(scale_x);
+      scales_y.push_back(scale_y);
+      abses_x.push_back(abs_x);
+      abses_y.push_back(abs_y);
+
+      if (has_scale && i == shaders - 1)
+         use_extra_pass = true;
+
+      if (!has_scale && i == 0)
+         use_first_pass_only = true;
+      else if (i > 0)
+         use_first_pass_only = false;
+   }
+
+   // Filter options.
+   for (int i = 0; i < shaders; i++)
+   {
+      char attr_filter[64];
+      snprintf(attr_filter, sizeof(attr_filter), "filter_linear%d", i);
+      bool filter = info.smooth;
+      conf.get(attr_filter, filter);
+      filters.push_back(filter);
+   }
+
+   // Setup information for first pass.
+   LinkInfo link_info = {0};
+   link_info.shader_path = shader_paths[0];
+
+   if (use_first_pass_only)
+   {
+      link_info.scale_x = link_info.scale_y = 1.0f;
+      link_info.scale_type_x = link_info.scale_type_y = LinkInfo::Absolute;
+   }
+   else
+   {
+      link_info.scale_x = scales_x[0];
+      link_info.scale_y = scales_y[0];
+      link_info.abs_x = abses_x[0];
+      link_info.abs_y = abses_y[0];
+      link_info.scale_type_x = scale_types_x[0];
+      link_info.scale_type_y = scale_types_y[0];
+   }
+
+   link_info.filter_linear = filters[0];
+   link_info.tex_w = link_info.tex_h = info.input_scale * 256;
+
+   chain = std::unique_ptr<RenderChain>(
+         new RenderChain(dev, cgCtx,
+            link_info,
+            info.color_format == SSNES_COLOR_FORMAT_XRGB1555 ?
+            RenderChain::RGB15 : RenderChain::ARGB,
+            final_viewport));
+
+   unsigned current_width = link_info.tex_w;
+   unsigned current_height = link_info.tex_h;
+   unsigned out_width = 0;
+   unsigned out_height = 0;
+
+   for (int i = 1; i < shaders; i++)
+   {
+      RenderChain::convert_geometry(link_info,
+            out_width, out_height,
+            current_width, current_height, final_viewport);
+
+      link_info.scale_x = scales_x[i];
+      link_info.scale_y = scales_y[i];
+      link_info.tex_w = next_pot(out_width);
+      link_info.tex_h = next_pot(out_height);
+      link_info.scale_type_x = scale_types_x[i];
+      link_info.scale_type_y = scale_types_y[i];
+      link_info.filter_linear = filters[i];
+      link_info.shader_path = shader_paths[i];
+
+      current_width = out_width;
+      current_height = out_height;
+
+      if (i == shaders - 1 && !use_extra_pass)
+      {
+         link_info.scale_x = link_info.scale_y = 1.0f;
+         link_info.scale_type_x = link_info.scale_type_y = LinkInfo::Absolute;
+      }
+
+      chain->add_pass(link_info);
+   }
+
+   if (use_extra_pass)
+   {
+      RenderChain::convert_geometry(link_info,
+            out_width, out_height,
+            current_width, current_height, final_viewport);
+
+      link_info.scale_x = link_info.scale_y = 1.0f;
+      link_info.scale_type_x = link_info.scale_type_y = LinkInfo::Absolute;
+      link_info.filter_linear = info.smooth;
+      link_info.tex_w = next_pot(out_width);
+      link_info.tex_h = next_pot(out_height);
+      link_info.shader_path = "";
+      chain->add_pass(link_info);
+   }
 }
 
 bool D3DVideo::init_chain(const ssnes_video_info_t &video_info)
 {
    try
    {
-      if (std::strstr(video_info.cg_shader, ".cgp"))
+      if (video_info.cg_shader && std::strstr(video_info.cg_shader, ".cgp"))
          init_chain_multipass(video_info);
       else
          init_chain_singlepass(video_info);

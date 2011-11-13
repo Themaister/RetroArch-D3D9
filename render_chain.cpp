@@ -95,7 +95,7 @@ bool RenderChain::render(const void *data,
    unsigned current_width = width, current_height = height;
    unsigned out_width, out_height;
    convert_geometry(passes[0].info, out_width, out_height,
-         current_width, current_height);
+         current_width, current_height, final_viewport);
 
    blit_to_texture(data, width, height, pitch);
 
@@ -115,7 +115,7 @@ bool RenderChain::render(const void *data,
 
       convert_geometry(from_pass.info,
             out_width, out_height,
-            current_width, current_height);
+            current_width, current_height, final_viewport);
 
       D3DVIEWPORT9 viewport = {0};
       viewport.X = 0;
@@ -144,7 +144,7 @@ bool RenderChain::render(const void *data,
 
    convert_geometry(last_pass.info,
          out_width, out_height,
-         current_width, current_height);
+         current_width, current_height, final_viewport);
    set_viewport(final_viewport);
    set_vertices(last_pass,
             current_width, current_height,
@@ -380,7 +380,8 @@ void RenderChain::clear_texture(Pass &pass)
 
 void RenderChain::convert_geometry(const LinkInfo &info,
       unsigned &out_width, unsigned &out_height,
-      unsigned width, unsigned height)
+      unsigned width, unsigned height,
+      const D3DVIEWPORT9 &final_viewport)
 {
    switch (info.scale_type_x)
    {

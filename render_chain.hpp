@@ -37,6 +37,11 @@ class RenderChain
       bool render(const void *data,
             unsigned width, unsigned height, unsigned pitch);
 
+      static void convert_geometry(const LinkInfo &info,
+            unsigned &out_width, unsigned &out_height,
+            unsigned width, unsigned height,
+	    const D3DVIEWPORT9 &final_viewport);
+
       void clear();
       ~RenderChain();
    private:
@@ -74,10 +79,6 @@ class RenderChain
             unsigned vp_w, unsigned vp_h);
 
       void clear_texture(Pass &pass);
-
-      void convert_geometry(const LinkInfo &info,
-            unsigned &out_width, unsigned &out_height,
-            unsigned width, unsigned height);
 
       void blit_to_texture(const void *data,
             unsigned width, unsigned height,

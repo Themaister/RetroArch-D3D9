@@ -37,6 +37,7 @@ RenderChain::RenderChain(IDirect3DDevice9 *dev_, CGcontext cgCtx_,
 {
    pixel_size = fmt == RGB15 ? 2 : 4;
    create_first_pass(info, fmt);
+   init_fvf();
    log_info(info);
 }
 
@@ -479,7 +480,6 @@ void RenderChain::render_pass(Pass &pass)
    dev->SetSamplerState(0, D3DSAMP_MAGFILTER,
          pass.info.filter_linear ? D3DTEXF_LINEAR : D3DTEXF_POINT);
 
-   dev->SetFVF(FVF);
    dev->SetStreamSource(0, pass.vertex_buf, 0, sizeof(Vertex));
 
    bind_prev(pass);
@@ -591,6 +591,16 @@ void RenderChain::bind_prev(Pass &pass)
          dev->SetSamplerState(index, D3DSAMP_MINFILTER,
                passes[0].info.filter_linear ? D3DTEXF_LINEAR : D3DTEXF_POINT);
       }
+
+      param = cgGetNamedParameter(pass.vPrg, attr_coord);
+      if (param)
+      {
+         unsigned index = cgGetParameterResourceIndex(param);
+         IDirect3DVertexBuffer9 *vert_buf = prev.vertex_buf[(prev.ptr - (i + 1)) & TexturesMask];
+         bound_prev_vert.push_back(index);
+
+         dev->SetStreamSource(index, vert_buf, 0, sizeof(Vertex));
+      }
    }
 }
 
@@ -599,5 +609,48 @@ void RenderChain::unbind_prev()
    for (unsigned i = 0; i < bound_prev.size(); i++)
       dev->SetTexture(bound_prev[i], nullptr);
    bound_prev.clear();
+
+   for (unsigned i = 0; i < bound_prev_vert.size(); i++)
+      dev->SetStreamSource(bound_prev_vert[i], nullptr, 0, 0);
+   bound_prev_vert.clear();
+}
+
+#define DECL_FVF(index) \
+   { index, 0 * sizeof(float), D3DDECLTYPE_FLOAT3, D3DDECLMETHOD_DEFAULT, \
+      D3DDECLUSAGE_POSITION, index }, \
+   { index, 3 * sizeof(float), D3DDECLTYPE_FLOAT2, D3DDECLMETHOD_DEFAULT, \
+      D3DDECLUSAGE_TEXCOORD, index },
+
+void RenderChain::init_fvf()
+{
+   const D3DVERTEXELEMENT9 fvfs[] = 
+   {
+      DECL_FVF(0)
+      DECL_FVF(1)
+      DECL_FVF(2)
+      DECL_FVF(3)
+      DECL_FVF(4)
+      DECL_FVF(5)
+      DECL_FVF(6)
+      DECL_FVF(7)
+      DECL_FVF(8)
+      DECL_FVF(9)
+      DECL_FVF(10)
+      DECL_FVF(11)
+      DECL_FVF(12)
+      DECL_FVF(13)
+      DECL_FVF(14)
+      DECL_FVF(15)
+
+      D3DDECL_END()
+   };
+
+   IDirect3DVertexDeclaration9 *decl;
+   if (FAILED(dev->CreateVertexDeclaration(fvfs, &decl)))
+      throw std::runtime_error("Failed to set up FVF!");
+
+   if (FAILED(dev->SetVertexDeclaration(decl)))
+      throw std::runtime_error("Failed to set FVF!");
+   decl->Release();
 }
 

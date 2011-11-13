@@ -101,8 +101,11 @@ class RenderChain
       void end_render();
 
       std::vector<unsigned> bound_prev;
+      std::vector<unsigned> bound_prev_vert;
       void bind_prev(Pass &pass);
       void unbind_prev();
+
+      void init_fvf();
 };
 
 #endif

@@ -616,8 +616,6 @@ void RenderChain::unbind_prev()
 }
 
 #define DECL_FVF(index) \
-   { index, 0 * sizeof(float), D3DDECLTYPE_FLOAT3, D3DDECLMETHOD_DEFAULT, \
-      D3DDECLUSAGE_POSITION, index }, \
    { index, 3 * sizeof(float), D3DDECLTYPE_FLOAT2, D3DDECLMETHOD_DEFAULT, \
       D3DDECLUSAGE_TEXCOORD, index },
 
@@ -625,6 +623,8 @@ void RenderChain::init_fvf()
 {
    const D3DVERTEXELEMENT9 fvfs[] = 
    {
+      { 0, 0 * sizeof(float), D3DDECLTYPE_FLOAT3, D3DDECLMETHOD_DEFAULT,
+         D3DDECLUSAGE_POSITION, 0 },
       DECL_FVF(0)
       DECL_FVF(1)
       DECL_FVF(2)

@@ -94,7 +94,7 @@ class RenderChain
             unsigned width, unsigned height,
             unsigned pitch);
 
-      void render_pass(Pass &pass);
+      void render_pass(Pass &pass, unsigned pass_index);
       void log_info(const LinkInfo &info);
 
       void start_render();
@@ -105,6 +105,10 @@ class RenderChain
       void bind_orig(Pass &pass);
       void bind_prev(Pass &pass);
       void unbind_prev();
+
+      std::vector<unsigned> bound_pass;
+      void bind_pass(Pass &pass, unsigned pass_index);
+      void unbind_pass();
 
       void init_fvf();
 };

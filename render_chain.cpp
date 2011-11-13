@@ -135,11 +135,9 @@ bool RenderChain::render(const void *data,
    // In-between render target passes.
    for (unsigned i = 0; i < passes.size() - 1; i++)
    {
-
       Pass &from_pass = passes[i];
       Pass &to_pass = passes[i + 1];
 
-      bind_orig(from_pass);
       IDirect3DSurface9 *target;
       to_pass.tex->GetSurfaceLevel(0, &target);
       dev->SetRenderTarget(0, target);
@@ -161,7 +159,8 @@ bool RenderChain::render(const void *data,
             current_width, current_height,
             out_width, out_height,
             out_width, out_height);
-      render_pass(from_pass);
+
+      render_pass(from_pass, i + 1);
 
       current_width = out_width;
       current_height = out_height;
@@ -180,8 +179,7 @@ bool RenderChain::render(const void *data,
             current_width, current_height,
             out_width, out_height,
             final_viewport.Width, final_viewport.Height);
-   bind_orig(last_pass);
-   render_pass(last_pass);
+   render_pass(last_pass, passes.size());
 
    frame_count++;
 
@@ -474,7 +472,7 @@ void RenderChain::blit_to_texture(const void *frame,
    }
 }
 
-void RenderChain::render_pass(Pass &pass)
+void RenderChain::render_pass(Pass &pass, unsigned pass_index)
 {
    set_shaders(pass);
    dev->SetTexture(0, pass.tex);
@@ -485,7 +483,9 @@ void RenderChain::render_pass(Pass &pass)
 
    dev->SetStreamSource(0, pass.vertex_buf, 0, sizeof(Vertex));
 
+   bind_orig(pass);
    bind_prev(pass);
+   bind_pass(pass, pass_index);
 
    dev->Clear(0, 0, D3DCLEAR_TARGET, 0, 1, 0);
    if (SUCCEEDED(dev->BeginScene()))
@@ -501,6 +501,7 @@ void RenderChain::render_pass(Pass &pass)
    dev->SetSamplerState(0, D3DSAMP_MAGFILTER,
          D3DTEXF_NONE);
 
+   unbind_pass();
    unbind_prev();
 }
 
@@ -652,6 +653,76 @@ void RenderChain::unbind_prev()
    for (unsigned i = 0; i < bound_prev_vert.size(); i++)
       dev->SetStreamSource(bound_prev_vert[i], nullptr, 0, 0);
    bound_prev_vert.clear();
+}
+
+void RenderChain::bind_pass(Pass &pass, unsigned pass_index)
+{
+   // We only bother binding passes which are two indices behind.
+   if (pass_index < 3)
+      return;
+
+   for (unsigned i = 1; i < pass_index - 1; i++)
+   {
+      char pass_base[64];
+      snprintf(pass_base, sizeof(pass_base), "PASS%u.", i);
+
+      std::string attr_texture = pass_base;
+      attr_texture += "texture";
+      std::string attr_video_size = pass_base;
+      attr_video_size += "video_size";
+      std::string attr_texture_size = pass_base;
+      attr_texture_size += "texture_size";
+      std::string attr_tex_coord = pass_base;
+      attr_tex_coord += "tex_coord";
+
+      D3DXVECTOR2 video_size;
+      video_size.x = passes[i].last_width;
+      video_size.y = passes[i].last_height;
+
+      D3DXVECTOR2 texture_size;
+      texture_size.x = passes[i].info.tex_w;
+      texture_size.y = passes[i].info.tex_h;
+
+      set_cg_param(pass.vPrg, attr_video_size.c_str(), video_size);
+      set_cg_param(pass.fPrg, attr_video_size.c_str(), video_size);
+      set_cg_param(pass.vPrg, attr_texture_size.c_str(), texture_size);
+      set_cg_param(pass.fPrg, attr_texture_size.c_str(), texture_size);
+
+      CGparameter param = cgGetNamedParameter(pass.fPrg, attr_texture.c_str());
+      if (param)
+      {
+         unsigned index = cgGetParameterResourceIndex(param);
+         bound_pass.push_back(index);
+
+         dev->SetTexture(index, passes[i].tex);
+         dev->SetSamplerState(index, D3DSAMP_MAGFILTER,
+               passes[i].info.filter_linear ? D3DTEXF_LINEAR : D3DTEXF_POINT);
+         dev->SetSamplerState(index, D3DSAMP_MINFILTER,
+               passes[i].info.filter_linear ? D3DTEXF_LINEAR : D3DTEXF_POINT);
+      }
+
+      param = cgGetNamedParameter(pass.vPrg, attr_tex_coord.c_str());
+      if (param)
+      {
+         unsigned index = cgGetParameterResourceIndex(param);
+         dev->SetStreamSource(index, passes[i].vertex_buf, 0, sizeof(Vertex));
+      }
+   }
+}
+
+void RenderChain::unbind_pass()
+{
+   // Have to be a bit anal about it.
+   for (unsigned i = 0; i < bound_pass.size(); i++)
+   {
+      dev->SetSamplerState(bound_pass[i], D3DSAMP_MAGFILTER,
+            D3DTEXF_NONE);
+      dev->SetSamplerState(bound_pass[i], D3DSAMP_MINFILTER,
+            D3DTEXF_NONE);
+      dev->SetTexture(bound_pass[i], nullptr);
+   }
+
+   bound_pass.clear();
 }
 
 #define DECL_FVF(index) \

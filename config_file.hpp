@@ -124,7 +124,7 @@ class ConfigFile
 
       ConfigFile(ConfigFile&& _in) { *this = std::move(_in); }
 
-      ~ConfigFile() { if (conf) { if (path[0]) config_file_write(conf, path.c_str());  config_file_free(conf); } }
+      ~ConfigFile() { if (conf) config_file_free(conf); }
 
 
    private:

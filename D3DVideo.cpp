@@ -164,7 +164,7 @@ void D3DVideo::calculate_rect(unsigned width, unsigned height, bool keep, float 
 }
 
 D3DVideo::D3DVideo(const ssnes_video_info_t *info) : 
-   g_pD3D(nullptr), dev(nullptr), needs_restore(false)
+   g_pD3D(nullptr), dev(nullptr), needs_restore(false), frames(0)
 {
    ZeroMemory(&windowClass, sizeof(windowClass));
    windowClass.cbSize = sizeof(windowClass);
@@ -525,8 +525,7 @@ void D3DVideo::init_chain_multipass(const ssnes_video_info_t &info)
 
       if (has_scale && i == shaders - 1)
          use_extra_pass = true;
-
-      if (!has_scale && i == 0)
+      else if (!has_scale && i == 0)
          use_first_pass_only = true;
       else if (i > 0)
          use_first_pass_only = false;
@@ -665,7 +664,7 @@ void D3DVideo::deinit_font()
 void D3DVideo::update_title()
 {
    frames++;
-   if (frames == 180)
+   if (frames >= 180)
    {
       LARGE_INTEGER current;
       QueryPerformanceCounter(&current);

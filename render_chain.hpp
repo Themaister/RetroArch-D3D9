@@ -102,6 +102,7 @@ class RenderChain
 
       std::vector<unsigned> bound_prev;
       std::vector<unsigned> bound_prev_vert;
+      void bind_orig(Pass &pass);
       void bind_prev(Pass &pass);
       void unbind_prev();
 

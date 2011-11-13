@@ -135,9 +135,11 @@ bool RenderChain::render(const void *data,
    // In-between render target passes.
    for (unsigned i = 0; i < passes.size() - 1; i++)
    {
+
       Pass &from_pass = passes[i];
       Pass &to_pass = passes[i + 1];
 
+      bind_orig(from_pass);
       IDirect3DSurface9 *target;
       to_pass.tex->GetSurfaceLevel(0, &target);
       dev->SetRenderTarget(0, target);
@@ -178,6 +180,7 @@ bool RenderChain::render(const void *data,
             current_width, current_height,
             out_width, out_height,
             final_viewport.Width, final_viewport.Height);
+   bind_orig(last_pass);
    render_pass(last_pass);
 
    frame_count++;
@@ -542,6 +545,40 @@ void RenderChain::log_info(const LinkInfo &info)
    std::cerr << "\tBilinear filter: " << std::boolalpha << info.filter_linear << std::endl;
 }
 
+void RenderChain::bind_orig(Pass &pass)
+{
+   D3DXVECTOR2 video_size;
+   video_size.x = passes[0].last_width;
+   video_size.y = passes[0].last_height;
+
+   D3DXVECTOR2 texture_size;
+   texture_size.x = passes[0].info.tex_w;
+   texture_size.y = passes[0].info.tex_h;
+
+   set_cg_param(pass.vPrg, "ORIG.video_size", video_size);
+   set_cg_param(pass.fPrg, "ORIG.video_size", video_size);
+   set_cg_param(pass.vPrg, "ORIG.texture_size", texture_size);
+   set_cg_param(pass.fPrg, "ORIG.texture_size", texture_size);
+
+   CGparameter param = cgGetNamedParameter(pass.fPrg, "ORIG.texture");
+   if (param)
+   {
+      unsigned index = cgGetParameterResourceIndex(param);
+      dev->SetTexture(index, passes[0].tex);
+      dev->SetSamplerState(index, D3DSAMP_MAGFILTER,
+            passes[0].info.filter_linear ? D3DTEXF_LINEAR : D3DTEXF_POINT);
+      dev->SetSamplerState(index, D3DSAMP_MINFILTER,
+            passes[0].info.filter_linear ? D3DTEXF_LINEAR : D3DTEXF_POINT);
+   }
+
+   param = cgGetNamedParameter(pass.vPrg, "ORIG.tex_coord");
+   if (param)
+   {
+      unsigned index = cgGetParameterResourceIndex(param);
+      dev->SetStreamSource(index, passes[0].vertex_buf, 0, sizeof(Vertex));
+   }
+}
+
 void RenderChain::bind_prev(Pass &pass)
 {
    static const char *prev_names[] = {
@@ -575,6 +612,8 @@ void RenderChain::bind_prev(Pass &pass)
       video_size.y = prev.last_height[(prev.ptr - (i + 1)) & TexturesMask];
 
       set_cg_param(pass.vPrg, attr_input_size, video_size);
+      set_cg_param(pass.fPrg, attr_input_size, video_size);
+      set_cg_param(pass.vPrg, attr_tex_size, texture_size);
       set_cg_param(pass.fPrg, attr_tex_size, texture_size);
 
       CGparameter param = cgGetNamedParameter(pass.fPrg, attr_texture);

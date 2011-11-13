@@ -3,6 +3,7 @@ TARGET := SSNES-D3D9.dll
 CXX_SOURCES := $(wildcard *.cpp)
 C_SOURCES := $(wildcard *.c)
 OBJECTS := $(C_SOURCES:.c=.o) $(CXX_SOURCES:.cpp=.o)
+HEADERS := $(wildcard *.h) $(wildcard *.hpp)
 
 ifeq ($(D3D_INCLUDE_DIR),)
    $(error "D3D_INCLUDE_DIR is not defined. You will most likely need to have D3D SDK installed.")
@@ -33,10 +34,10 @@ all: $(TARGET)
 $(TARGET): $(OBJECTS)
 	$(CXX) -o $@ $(OBJECTS) $(LIBDIRS) $(LIBS) $(LDFLAGS)
 
-%.o: %.cpp
+%.o: %.cpp $(HEADERS)
 	$(CXX) -c -o $@ $< $(CXXFLAGS) $(INCDIRS)
 
-%.o: %.c
+%.o: %.c $(HEADERS)
 	$(CC) -c -o $@ $< $(CFLAGS) $(INCDIRS)
 
 clean:

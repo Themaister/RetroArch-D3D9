@@ -41,7 +41,15 @@ RenderChain::RenderChain(IDirect3DDevice9 *dev_, CGcontext cgCtx_,
 
 void RenderChain::clear()
 {
-   for (unsigned i = 0; i < passes.size(); i++)
+   for (unsigned i = 0; i < Textures; i++)
+   {
+      if (prev.tex[i])
+         prev.tex[i]->Release();
+      if (prev.vertex_buf[i])
+         prev.vertex_buf[i]->Release();
+   }
+
+   for (unsigned i = 1; i < passes.size(); i++)
    {
       if (passes[i].tex)
          passes[i].tex->Release();
@@ -91,10 +99,27 @@ void RenderChain::add_pass(const LinkInfo &info)
    log_info(info);
 }
 
+void RenderChain::start_render()
+{
+   passes[0].tex = prev.tex[prev.ptr];
+   passes[0].vertex_buf = prev.vertex_buf[prev.ptr];
+   passes[0].last_width = prev.last_width[prev.ptr];
+   passes[0].last_height = prev.last_height[prev.ptr];
+}
+
+void RenderChain::end_render()
+{
+   prev.last_width[prev.ptr] = passes[0].last_width;
+   prev.last_height[prev.ptr] = passes[0].last_height;
+   prev.ptr = (prev.ptr + 1) & TexturesMask;
+}
+
 // TODO: Multipass.
 bool RenderChain::render(const void *data,
       unsigned width, unsigned height, unsigned pitch)
 {
+   start_render();
+
    unsigned current_width = width, current_height = height;
    unsigned out_width, out_height;
    convert_geometry(passes[0].info, out_width, out_height,
@@ -160,6 +185,7 @@ bool RenderChain::render(const void *data,
 
    back_buffer->Release();
 
+   end_render();
    return true;
 }
 
@@ -175,34 +201,41 @@ void RenderChain::create_first_pass(const LinkInfo &info, PixelFormat fmt)
    pass.last_width = 0;
    pass.last_height = 0;
 
-   if (FAILED(dev->CreateVertexBuffer(
-               4 * sizeof(Vertex),
-               0,
-               FVF,
-               D3DPOOL_DEFAULT,
-               &pass.vertex_buf,
-               nullptr)))
+   prev.ptr = 0;
+   for (unsigned i = 0; i < Textures; i++)
    {
-      throw std::runtime_error("Failed to create Vertex buf ...");
-   }
+      prev.last_width[i] = 0;
+      prev.last_height[i] = 0;
 
-   if (FAILED(dev->CreateTexture(info.tex_w, info.tex_h, 1, 0,
-               fmt == RGB15 ? D3DFMT_X1R5G5B5 : D3DFMT_X8R8G8B8,
-               D3DPOOL_MANAGED,
-               &pass.tex, nullptr)))
-   {
-      throw std::runtime_error("Failed to create texture ...");
-   }
+      if (FAILED(dev->CreateVertexBuffer(
+                  4 * sizeof(Vertex),
+                  0,
+                  FVF,
+                  D3DPOOL_DEFAULT,
+                  &prev.vertex_buf[i],
+                  nullptr)))
+      {
+         throw std::runtime_error("Failed to create Vertex buf ...");
+      }
 
-   dev->SetTexture(0, pass.tex);
-   dev->SetSamplerState(0, D3DSAMP_MINFILTER,
-         info.filter_linear ? D3DTEXF_LINEAR : D3DTEXF_POINT);
-   dev->SetSamplerState(0, D3DSAMP_MAGFILTER,
-         info.filter_linear ? D3DTEXF_LINEAR : D3DTEXF_POINT);
-   dev->SetSamplerState(0, D3DSAMP_ADDRESSU, D3DTADDRESS_BORDER);
-   dev->SetSamplerState(0, D3DSAMP_ADDRESSV, D3DTADDRESS_BORDER);
-   dev->SetRenderState(D3DRS_LIGHTING, FALSE);
-   dev->SetTexture(0, nullptr);
+      if (FAILED(dev->CreateTexture(info.tex_w, info.tex_h, 1, 0,
+                  fmt == RGB15 ? D3DFMT_X1R5G5B5 : D3DFMT_X8R8G8B8,
+                  D3DPOOL_MANAGED,
+                  &prev.tex[i], nullptr)))
+      {
+         throw std::runtime_error("Failed to create texture ...");
+      }
+
+      dev->SetTexture(0, prev.tex[i]);
+      dev->SetSamplerState(0, D3DSAMP_MINFILTER,
+            info.filter_linear ? D3DTEXF_LINEAR : D3DTEXF_POINT);
+      dev->SetSamplerState(0, D3DSAMP_MAGFILTER,
+            info.filter_linear ? D3DTEXF_LINEAR : D3DTEXF_POINT);
+      dev->SetSamplerState(0, D3DSAMP_ADDRESSU, D3DTADDRESS_BORDER);
+      dev->SetSamplerState(0, D3DSAMP_ADDRESSV, D3DTADDRESS_BORDER);
+      dev->SetRenderState(D3DRS_LIGHTING, FALSE);
+      dev->SetTexture(0, nullptr);
+   }
 
    compile_shaders(pass, info.shader_path);
    passes.push_back(pass);
@@ -441,29 +474,28 @@ void RenderChain::blit_to_texture(const void *frame,
 
 void RenderChain::render_pass(Pass &pass)
 {
+   dev->SetTexture(0, pass.tex);
+   dev->SetSamplerState(0, D3DSAMP_MINFILTER,
+         pass.info.filter_linear ? D3DTEXF_LINEAR : D3DTEXF_POINT);
+   dev->SetSamplerState(0, D3DSAMP_MAGFILTER,
+         pass.info.filter_linear ? D3DTEXF_LINEAR : D3DTEXF_POINT);
+
+   dev->SetFVF(FVF);
+   dev->SetStreamSource(0, pass.vertex_buf, 0, sizeof(Vertex));
+
    dev->Clear(0, 0, D3DCLEAR_TARGET, 0, 1, 0);
    if (SUCCEEDED(dev->BeginScene()))
    {
-      dev->SetTexture(0, pass.tex);
-
-      dev->SetSamplerState(0, D3DSAMP_MINFILTER,
-            pass.info.filter_linear ? D3DTEXF_LINEAR : D3DTEXF_POINT);
-      dev->SetSamplerState(0, D3DSAMP_MAGFILTER,
-            pass.info.filter_linear ? D3DTEXF_LINEAR : D3DTEXF_POINT);
-
-      dev->SetFVF(FVF);
-      dev->SetStreamSource(0, pass.vertex_buf, 0, sizeof(Vertex));
-
       dev->DrawPrimitive(D3DPT_TRIANGLESTRIP, 0, 2);
       dev->EndScene();
-
-      // So we don't render with linear filter into render targets,
-      // which apparently looked odd (too blurry).
-      dev->SetSamplerState(0, D3DSAMP_MINFILTER,
-            D3DTEXF_NONE);
-      dev->SetSamplerState(0, D3DSAMP_MAGFILTER,
-            D3DTEXF_NONE);
    }
+
+   // So we don't render with linear filter into render targets,
+   // which apparently looked odd (too blurry).
+   dev->SetSamplerState(0, D3DSAMP_MINFILTER,
+         D3DTEXF_NONE);
+   dev->SetSamplerState(0, D3DSAMP_MAGFILTER,
+         D3DTEXF_NONE);
 }
 
 void RenderChain::log_info(const LinkInfo &info)

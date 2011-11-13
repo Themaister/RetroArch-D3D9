@@ -49,6 +49,16 @@ class RenderChain
       CGcontext cgCtx;
       unsigned pixel_size;
 
+      enum { Textures = 8, TexturesMask = Textures - 1 };
+      struct
+      {
+         IDirect3DTexture9 *tex[Textures];
+         IDirect3DVertexBuffer9 *vertex_buf[Textures];
+         unsigned ptr;
+         unsigned last_width[Textures];
+         unsigned last_height[Textures];
+      } prev;
+
       struct Pass
       {
          LinkInfo info;
@@ -85,8 +95,10 @@ class RenderChain
             unsigned pitch);
 
       void render_pass(Pass &pass);
-
       void log_info(const LinkInfo &info);
+
+      void start_render();
+      void end_render();
 };
 
 #endif

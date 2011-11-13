@@ -368,33 +368,35 @@ void D3DVideo::deinit_cg()
    }
 }
 
-bool D3DVideo::init_chain(const ssnes_video_info_t &video_info)
+void D3DVideo::init_chain_singlepass(const ssnes_video_info_t &video_info)
 {
-   LinkInfo info = {0}; 
+   LinkInfo info = {0};
    info.shader_path = video_info.cg_shader ? video_info.cg_shader : "";
-   info.scale_x = info.scale_y = 2.0f;
+   info.scale_x = info.scale_y = 1.0f;
    info.filter_linear = video_info.smooth;
    info.tex_w = info.tex_h = 256 * video_info.input_scale;
+   info.scale_type_x = info.scale_type_y = LinkInfo::Viewport;
 
-   info.scale_type_x = LinkInfo::Relative;
-   info.scale_type_y = LinkInfo::Relative;
-
-   try
-   {
-      chain = std::unique_ptr<RenderChain>(new RenderChain(dev, cgCtx,
+   chain = std::unique_ptr<RenderChain>(new RenderChain(dev, cgCtx,
                info,
                video_info.color_format == SSNES_COLOR_FORMAT_XRGB1555 ?
                RenderChain::RGB15 : RenderChain::ARGB,
                final_viewport));
+}
 
-      info.shader_path = "";
-      info.filter_linear = true;
-      info.tex_w = info.tex_h = 512 * video_info.input_scale;
+void D3DVideo::init_chain_multipass(const ssnes_video_info_t &)
+{
+   throw std::runtime_error("Not implemented yet!");
+}
 
-      info.scale_x = info.scale_y = 1.0f;
-      info.scale_type_x = LinkInfo::Viewport;
-      info.scale_type_y = LinkInfo::Viewport;
-      chain->add_pass(info);
+bool D3DVideo::init_chain(const ssnes_video_info_t &video_info)
+{
+   try
+   {
+      if (std::strstr(video_info.cg_shader, ".cgp"))
+         init_chain_multipass(video_info);
+      else
+         init_chain_singlepass(video_info);
    }
    catch (const std::exception &e)
    {

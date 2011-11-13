@@ -61,6 +61,8 @@ class D3DVideo
       bool init_cg();
       void deinit_cg();
 
+      void init_chain_singlepass(const ssnes_video_info_t &video_info);
+      void init_chain_multipass(const ssnes_video_info_t &video_info);
       bool init_chain(const ssnes_video_info_t &video_info);
       std::unique_ptr<RenderChain> chain;
       void deinit_chain();

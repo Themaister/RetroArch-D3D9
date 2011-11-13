@@ -4,6 +4,7 @@
 #include <stdexcept>
 #include <cstring>
 #include <iostream>
+#include <cstdio>
 
 namespace Global
 {
@@ -114,7 +115,6 @@ void RenderChain::end_render()
    prev.ptr = (prev.ptr + 1) & TexturesMask;
 }
 
-// TODO: Multipass.
 bool RenderChain::render(const void *data,
       unsigned width, unsigned height, unsigned pitch)
 {
@@ -158,7 +158,6 @@ bool RenderChain::render(const void *data,
             current_width, current_height,
             out_width, out_height,
             out_width, out_height);
-      set_shaders(from_pass);
       render_pass(from_pass);
 
       current_width = out_width;
@@ -178,7 +177,6 @@ bool RenderChain::render(const void *data,
             current_width, current_height,
             out_width, out_height,
             final_viewport.Width, final_viewport.Height);
-   set_shaders(last_pass);
    render_pass(last_pass);
 
    frame_count++;
@@ -474,6 +472,7 @@ void RenderChain::blit_to_texture(const void *frame,
 
 void RenderChain::render_pass(Pass &pass)
 {
+   set_shaders(pass);
    dev->SetTexture(0, pass.tex);
    dev->SetSamplerState(0, D3DSAMP_MINFILTER,
          pass.info.filter_linear ? D3DTEXF_LINEAR : D3DTEXF_POINT);
@@ -482,6 +481,8 @@ void RenderChain::render_pass(Pass &pass)
 
    dev->SetFVF(FVF);
    dev->SetStreamSource(0, pass.vertex_buf, 0, sizeof(Vertex));
+
+   bind_prev(pass);
 
    dev->Clear(0, 0, D3DCLEAR_TARGET, 0, 1, 0);
    if (SUCCEEDED(dev->BeginScene()))
@@ -496,6 +497,8 @@ void RenderChain::render_pass(Pass &pass)
          D3DTEXF_NONE);
    dev->SetSamplerState(0, D3DSAMP_MAGFILTER,
          D3DTEXF_NONE);
+
+   unbind_prev();
 }
 
 void RenderChain::log_info(const LinkInfo &info)
@@ -537,5 +540,64 @@ void RenderChain::log_info(const LinkInfo &info)
    }
 
    std::cerr << "\tBilinear filter: " << std::boolalpha << info.filter_linear << std::endl;
+}
+
+void RenderChain::bind_prev(Pass &pass)
+{
+   static const char *prev_names[] = {
+      "PREV",
+      "PREV1",
+      "PREV2",
+      "PREV3",
+      "PREV4",
+      "PREV5",
+      "PREV6",
+   };
+
+   char attr_texture[64];
+   char attr_input_size[64];
+   char attr_tex_size[64];
+   char attr_coord[64];
+
+   D3DXVECTOR2 texture_size;
+   texture_size.x = passes[0].info.tex_w;
+   texture_size.y = passes[0].info.tex_h;
+
+   for (unsigned i = 0; i < Textures - 1; i++)
+   {
+      std::snprintf(attr_texture,    sizeof(attr_texture),    "%s.texture",      prev_names[i]);
+      std::snprintf(attr_input_size, sizeof(attr_input_size), "%s.video_size",   prev_names[i]);
+      std::snprintf(attr_tex_size,   sizeof(attr_tex_size),   "%s.texture_size", prev_names[i]);
+      std::snprintf(attr_coord,      sizeof(attr_coord),      "%s.tex_coord",    prev_names[i]);
+
+      D3DXVECTOR2 video_size;
+      video_size.x = prev.last_width[(prev.ptr - (i + 1)) & TexturesMask];
+      video_size.y = prev.last_height[(prev.ptr - (i + 1)) & TexturesMask];
+
+      set_cg_param(pass.vPrg, attr_input_size, video_size);
+      set_cg_param(pass.fPrg, attr_tex_size, texture_size);
+
+      CGparameter param = cgGetNamedParameter(pass.fPrg, attr_texture);
+      if (param)
+      {
+         unsigned index = cgGetParameterResourceIndex(param);
+
+         IDirect3DTexture9 *tex = prev.tex[(prev.ptr - (i + 1)) & TexturesMask];
+         dev->SetTexture(index, tex);
+         bound_prev.push_back(index);
+
+         dev->SetSamplerState(index, D3DSAMP_MAGFILTER,
+               passes[0].info.filter_linear ? D3DTEXF_LINEAR : D3DTEXF_POINT);
+         dev->SetSamplerState(index, D3DSAMP_MINFILTER,
+               passes[0].info.filter_linear ? D3DTEXF_LINEAR : D3DTEXF_POINT);
+      }
+   }
+}
+
+void RenderChain::unbind_prev()
+{
+   for (unsigned i = 0; i < bound_prev.size(); i++)
+      dev->SetTexture(bound_prev[i], nullptr);
+   bound_prev.clear();
 }
 

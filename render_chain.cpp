@@ -71,7 +71,8 @@ void RenderChain::add_pass(const LinkInfo &info)
       throw std::runtime_error("Failed to create Vertex buf ...");
    }
 
-   if (FAILED(dev->CreateTexture(info.tex_w, info.tex_h, 1, D3DUSAGE_RENDERTARGET,
+   if (FAILED(dev->CreateTexture(info.tex_w, info.tex_h, 1,
+               D3DUSAGE_RENDERTARGET,
                D3DFMT_X8R8G8B8,
                D3DPOOL_DEFAULT,
                &pass.tex, nullptr)))
@@ -80,13 +81,8 @@ void RenderChain::add_pass(const LinkInfo &info)
    }
 
    dev->SetTexture(0, pass.tex);
-   dev->SetSamplerState(0, D3DSAMP_MINFILTER,
-         info.filter_linear ? D3DTEXF_LINEAR : D3DTEXF_POINT);
-   dev->SetSamplerState(0, D3DSAMP_MAGFILTER,
-         info.filter_linear ? D3DTEXF_LINEAR : D3DTEXF_POINT);
    dev->SetSamplerState(0, D3DSAMP_ADDRESSU, D3DTADDRESS_BORDER);
    dev->SetSamplerState(0, D3DSAMP_ADDRESSV, D3DTADDRESS_BORDER);
-   dev->SetRenderState(D3DRS_LIGHTING, FALSE);
    dev->SetTexture(0, nullptr);
 
    passes.push_back(pass);
@@ -139,6 +135,7 @@ bool RenderChain::render(const void *data,
 
       current_width = out_width;
       current_height = out_height;
+      target->Release();
    }
 
    // Final pass
@@ -157,6 +154,9 @@ bool RenderChain::render(const void *data,
    render_pass(last_pass);
 
    frame_count++;
+
+   back_buffer->Release();
+
    return true;
 }
 
@@ -417,15 +417,12 @@ void RenderChain::blit_to_texture(const void *frame,
       unsigned width, unsigned height,
       unsigned pitch)
 {
-   if (passes[0].last_width != width || passes[0].last_height != height)
-   {
-      passes[0].last_width = width;
-      passes[1].last_height = height;
-      clear_texture(passes[0]);
-   }
+   Pass &first = passes[0];
+   if (first.last_width != width || first.last_height != height)
+      clear_texture(first);
 
    D3DLOCKED_RECT d3dlr;
-   if (SUCCEEDED(passes[0].tex->LockRect(0, &d3dlr, nullptr, D3DLOCK_NOSYSLOCK)))
+   if (SUCCEEDED(first.tex->LockRect(0, &d3dlr, nullptr, D3DLOCK_NOSYSLOCK)))
    {
       for (unsigned y = 0; y < height; y++)
       {
@@ -434,7 +431,7 @@ void RenderChain::blit_to_texture(const void *frame,
          std::memcpy(out, in, width * pixel_size);
       }
 
-      passes[0].tex->UnlockRect(0);
+      first.tex->UnlockRect(0);
    }
 }
 
@@ -444,11 +441,24 @@ void RenderChain::render_pass(Pass &pass)
    if (SUCCEEDED(dev->BeginScene()))
    {
       dev->SetTexture(0, pass.tex);
+
+      dev->SetSamplerState(0, D3DSAMP_MINFILTER,
+            pass.info.filter_linear ? D3DTEXF_LINEAR : D3DTEXF_POINT);
+      dev->SetSamplerState(0, D3DSAMP_MAGFILTER,
+            pass.info.filter_linear ? D3DTEXF_LINEAR : D3DTEXF_POINT);
+
       dev->SetFVF(FVF);
       dev->SetStreamSource(0, pass.vertex_buf, 0, sizeof(Vertex));
 
       dev->DrawPrimitive(D3DPT_TRIANGLESTRIP, 0, 2);
       dev->EndScene();
+
+      // So we don't render with linear filter into render targets,
+      // which apparently looked odd (too blurry).
+      dev->SetSamplerState(0, D3DSAMP_MINFILTER,
+            D3DTEXF_NONE);
+      dev->SetSamplerState(0, D3DSAMP_MAGFILTER,
+            D3DTEXF_NONE);
    }
 }
 

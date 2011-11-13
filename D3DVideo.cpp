@@ -609,7 +609,7 @@ void D3DVideo::init_chain_multipass(const ssnes_video_info_t &info)
             current_width, current_height, final_viewport);
 
       link_info.scale_x = link_info.scale_y = 1.0f;
-      link_info.scale_type_x = link_info.scale_type_y = LinkInfo::Absolute;
+      link_info.scale_type_x = link_info.scale_type_y = LinkInfo::Viewport;
       link_info.filter_linear = info.smooth;
       link_info.tex_w = next_pot(out_width);
       link_info.tex_h = next_pot(out_height);

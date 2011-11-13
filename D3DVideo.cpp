@@ -408,6 +408,8 @@ void D3DVideo::init_chain_multipass(const ssnes_video_info_t &info)
    if (shaders < 1)
       throw std::runtime_error("Must have at least one shader!");
 
+   std::cerr << "[Direct3D Meta-Cg] Found " << shaders << " shaders!" << std::endl;
+
    std::string basedir = info.cg_shader;
    size_t pos = basedir.rfind('/');
    if (pos == std::string::npos)
@@ -461,7 +463,7 @@ void D3DVideo::init_chain_multipass(const ssnes_video_info_t &info)
       snprintf(attr_type,    sizeof(attr_type),    "scale_type%d", i);
       snprintf(attr_type_x,  sizeof(attr_type_x),  "scale_type_x%d", i);
       snprintf(attr_type_y,  sizeof(attr_type_x),  "scale_type_y%d", i);
-      snprintf(attr_type,    sizeof(attr_scale),   "scale%d", i);
+      snprintf(attr_scale,    sizeof(attr_scale),   "scale%d", i);
       snprintf(attr_scale_x, sizeof(attr_scale_x), "scale_x%d", i);
       snprintf(attr_scale_y, sizeof(attr_scale_y), "scale_y%d", i);
 
@@ -547,7 +549,7 @@ void D3DVideo::init_chain_multipass(const ssnes_video_info_t &info)
    if (use_first_pass_only)
    {
       link_info.scale_x = link_info.scale_y = 1.0f;
-      link_info.scale_type_x = link_info.scale_type_y = LinkInfo::Absolute;
+      link_info.scale_type_x = link_info.scale_type_y = LinkInfo::Viewport;
    }
    else
    {
@@ -595,7 +597,7 @@ void D3DVideo::init_chain_multipass(const ssnes_video_info_t &info)
       if (i == shaders - 1 && !use_extra_pass)
       {
          link_info.scale_x = link_info.scale_y = 1.0f;
-         link_info.scale_type_x = link_info.scale_type_y = LinkInfo::Absolute;
+         link_info.scale_type_x = link_info.scale_type_y = LinkInfo::Viewport;
       }
 
       chain->add_pass(link_info);

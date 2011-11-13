@@ -36,6 +36,7 @@ RenderChain::RenderChain(IDirect3DDevice9 *dev_, CGcontext cgCtx_,
 {
    pixel_size = fmt == RGB15 ? 2 : 4;
    create_first_pass(info, fmt);
+   log_info(info);
 }
 
 void RenderChain::clear()
@@ -86,6 +87,8 @@ void RenderChain::add_pass(const LinkInfo &info)
    dev->SetTexture(0, nullptr);
 
    passes.push_back(pass);
+
+   log_info(info);
 }
 
 // TODO: Multipass.
@@ -461,5 +464,46 @@ void RenderChain::render_pass(Pass &pass)
       dev->SetSamplerState(0, D3DSAMP_MAGFILTER,
             D3DTEXF_NONE);
    }
+}
+
+void RenderChain::log_info(const LinkInfo &info)
+{
+   std::cerr << "[Direct3D Cg] Render pass info:" << std::endl;
+   std::cerr << "\tTexture width: " << info.tex_w << std::endl;
+   std::cerr << "\tTexture height: " << info.tex_h << std::endl;
+
+   std::cerr << "\tScale type (X): ";
+   switch (info.scale_type_x)
+   {
+      case LinkInfo::Relative:
+         std::cerr << "Relative @ " << info.scale_x << "x" << std::endl;
+         break;
+
+      case LinkInfo::Viewport:
+         std::cerr << "Viewport @ " << info.scale_x << "x" << std::endl;
+         break;
+
+      case LinkInfo::Absolute:
+         std::cerr << "Absolute @ " << info.abs_x << "px" << std::endl;
+         break;
+   }
+
+   std::cerr << "\tScale type (Y): ";
+   switch (info.scale_type_y)
+   {
+      case LinkInfo::Relative:
+         std::cerr << "Relative @ " << info.scale_y << "x" << std::endl;
+         break;
+
+      case LinkInfo::Viewport:
+         std::cerr << "Viewport @ " << info.scale_y << "x" << std::endl;
+         break;
+
+      case LinkInfo::Absolute:
+         std::cerr << "Absolute @ " << info.abs_y << "px" << std::endl;
+         break;
+   }
+
+   std::cerr << "\tBilinear filter: " << std::boolalpha << info.filter_linear << std::endl;
 }
 

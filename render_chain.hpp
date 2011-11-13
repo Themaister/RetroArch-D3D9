@@ -85,6 +85,8 @@ class RenderChain
             unsigned pitch);
 
       void render_pass(Pass &pass);
+
+      void log_info(const LinkInfo &info);
 };
 
 #endif

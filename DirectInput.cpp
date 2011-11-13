@@ -189,10 +189,11 @@ DirectInput::~DirectInput()
       keyboard->Release();
    }
 
-   std::for_each(std::begin(joypad), std::end(joypad), [](IDirectInputDevice8 *dev) {
-         if (dev)
-         dev->Release();
-         });
+   for (size_t i = 0; i < joypad.size(); i++)
+   {
+      if (joypad[i])
+         joypad[i]->Release();
+   }
 
    if (ctx)
       ctx->Release();

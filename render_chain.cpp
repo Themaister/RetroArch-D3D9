@@ -539,7 +539,8 @@ void RenderChain::render_pass(Pass &pass, unsigned pass_index)
          pass.info.filter_linear ? D3DTEXF_LINEAR : D3DTEXF_POINT);
 
    dev->SetVertexDeclaration(pass.vertex_decl);
-   dev->SetStreamSource(0, pass.vertex_buf, 0, sizeof(Vertex));
+   for (unsigned i = 0; i < 3; i++)
+      dev->SetStreamSource(i, pass.vertex_buf, 0, sizeof(Vertex));
 
    bind_orig(pass);
    bind_prev(pass);
@@ -827,8 +828,8 @@ void RenderChain::init_fvf(Pass &pass)
 {
    static const D3DVERTEXELEMENT9 decl_end = D3DDECL_END();
    static const D3DVERTEXELEMENT9 position_decl = DECL_FVF_POSITION(0);
-   static const D3DVERTEXELEMENT9 tex_coord0 = DECL_FVF_TEXCOORD(0, 3, 0);
-   static const D3DVERTEXELEMENT9 tex_coord1 = DECL_FVF_TEXCOORD(0, 5, 1);
+   static const D3DVERTEXELEMENT9 tex_coord0 = DECL_FVF_TEXCOORD(1, 3, 0);
+   static const D3DVERTEXELEMENT9 tex_coord1 = DECL_FVF_TEXCOORD(2, 5, 1);
    // Dummy, not really used.
    static const D3DVERTEXELEMENT9 color = DECL_FVF_COLOR(0, 3, 0);
 
@@ -848,8 +849,10 @@ void RenderChain::init_fvf(Pass &pass)
    // This is completely insane.
    // We do not have a good and easy way of setting up our
    // attribute streams, so we have to do it ourselves, yay!
-   // Stream 0 => POSITION, TEXCOORD0, TEXCOORD1
-   // Stream {1..N} => Texture coord streams for resource index {1..}.
+   // Stream 0 => POSITION
+   // Stream 1 => TEXCOORD0
+   // Stream 2 => TEXCOORD1
+   // Stream {3..N} => Texture coord streams for varying resources which have no semantics.
 
    std::vector<bool> indices(count);
 
@@ -861,6 +864,8 @@ void RenderChain::init_fvf(Pass &pass)
       unsigned index = cgGetParameterResourceIndex(param);
       decl[index] = position_decl;
       indices[index] = true;
+      min_indice = std::min(min_indice, index);
+      max_indice = std::max(max_indice, index);
    }
 
    param = find_param_from_semantic(pass.vPrg, "TEXCOORD");
@@ -871,6 +876,8 @@ void RenderChain::init_fvf(Pass &pass)
       unsigned index = cgGetParameterResourceIndex(param);
       decl[index] = tex_coord0;
       indices[index] = true;
+      min_indice = std::min(min_indice, index);
+      max_indice = std::max(max_indice, index);
    }
 
    param = find_param_from_semantic(pass.vPrg, "TEXCOORD1");
@@ -879,6 +886,8 @@ void RenderChain::init_fvf(Pass &pass)
       unsigned index = cgGetParameterResourceIndex(param);
       decl[index] = tex_coord1;
       indices[index] = true;
+      min_indice = std::min(min_indice, index);
+      max_indice = std::max(max_indice, index);
    }
 
    // A dummy.
@@ -890,21 +899,19 @@ void RenderChain::init_fvf(Pass &pass)
       unsigned index = cgGetParameterResourceIndex(param);
       decl[index] = color;
       indices[index] = true;
+      min_indice = std::min(min_indice, index);
+      max_indice = std::max(max_indice, index);
    }
 
-   unsigned index = 1;
+   unsigned index = 3;
    for (unsigned i = 0; i < count; i++)
    {
       if (indices[i])
-      {
-         std::cerr << "Index #" << i << " bound!" << std::endl;
          pass.attrib_map.push_back(0);
-      }
       else
       {
-         std::cerr << "Index #" << i << " not bound!" << std::endl;
          pass.attrib_map.push_back(index);
-         decl[i] = DECL_FVF_TEXCOORD(index, 3, index + 1);
+         decl[i] = DECL_FVF_TEXCOORD(index, 3, index - 1);
          index++;
       }
    }

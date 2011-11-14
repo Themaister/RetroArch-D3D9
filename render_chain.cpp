@@ -634,7 +634,7 @@ void RenderChain::bind_orig(Pass &pass)
    param = cgGetNamedParameter(pass.vPrg, "ORIG.tex_coord");
    if (param)
    {
-      unsigned index = cgGetParameterResourceIndex(param) + 1;
+      unsigned index = pass.attrib_map[cgGetParameterResourceIndex(param)];
       dev->SetStreamSource(index, passes[0].vertex_buf, 0, sizeof(Vertex));
       bound_vert.push_back(index);
    }
@@ -695,7 +695,7 @@ void RenderChain::bind_prev(Pass &pass)
       param = cgGetNamedParameter(pass.vPrg, attr_coord);
       if (param)
       {
-         unsigned index = cgGetParameterResourceIndex(param) + 1;
+         unsigned index = pass.attrib_map[cgGetParameterResourceIndex(param)];
          IDirect3DVertexBuffer9 *vert_buf = prev.vertex_buf[(prev.ptr - (i + 1)) & TexturesMask];
          bound_vert.push_back(index);
 
@@ -753,7 +753,7 @@ void RenderChain::bind_pass(Pass &pass, unsigned pass_index)
       param = cgGetNamedParameter(pass.vPrg, attr_tex_coord.c_str());
       if (param)
       {
-         unsigned index = cgGetParameterResourceIndex(param) + 1;
+         unsigned index = pass.attrib_map[cgGetParameterResourceIndex(param)];
          dev->SetStreamSource(index, passes[i].vertex_buf, 0, sizeof(Vertex));
          bound_vert.push_back(index);
       }
@@ -819,6 +819,9 @@ static inline CGparameter find_param_from_semantic(CGprogram prog, const std::st
 #define DECL_FVF_TEXCOORD(stream, offset, index) \
    { (WORD)(stream), (WORD)(offset * sizeof(float)), D3DDECLTYPE_FLOAT2, D3DDECLMETHOD_DEFAULT, \
       D3DDECLUSAGE_TEXCOORD, (BYTE)(index) }
+#define DECL_FVF_COLOR(stream, offset, index) \
+   { (WORD)(stream), (WORD)(offset * sizeof(float)), D3DDECLTYPE_FLOAT4, D3DDECLMETHOD_DEFAULT, \
+      D3DDECLUSAGE_COLOR, (BYTE)(index) } \
 
 void RenderChain::init_fvf(Pass &pass)
 {
@@ -826,6 +829,8 @@ void RenderChain::init_fvf(Pass &pass)
    static const D3DVERTEXELEMENT9 position_decl = DECL_FVF_POSITION(0);
    static const D3DVERTEXELEMENT9 tex_coord0 = DECL_FVF_TEXCOORD(0, 3, 0);
    static const D3DVERTEXELEMENT9 tex_coord1 = DECL_FVF_TEXCOORD(0, 5, 1);
+   // Dummy, not really used.
+   static const D3DVERTEXELEMENT9 color = DECL_FVF_COLOR(0, 3, 0);
 
    D3DVERTEXELEMENT9 decl[MAXD3DDECLLENGTH] = {{0}};
    if (cgD3D9GetVertexDeclaration(pass.vPrg, decl) == CG_FALSE)
@@ -847,8 +852,7 @@ void RenderChain::init_fvf(Pass &pass)
    // Stream {1..N} => Texture coord streams for resource index {0..N-1}.
    // Some streams might end up empty, but hey ;)
 
-   for (unsigned i = 0; i < count; i++)
-      decl[i] = DECL_FVF_TEXCOORD(i + 1, 3, i + 2);
+   std::vector<bool> indices(count);
 
    CGparameter param = find_param_from_semantic(pass.vPrg, "POSITION");
    if (!param)
@@ -857,6 +861,7 @@ void RenderChain::init_fvf(Pass &pass)
    {
       unsigned index = cgGetParameterResourceIndex(param);
       decl[index] = position_decl;
+      indices[index] = true;
    }
 
    param = find_param_from_semantic(pass.vPrg, "TEXCOORD");
@@ -866,6 +871,7 @@ void RenderChain::init_fvf(Pass &pass)
    {
       unsigned index = cgGetParameterResourceIndex(param);
       decl[index] = tex_coord0;
+      indices[index] = true;
    }
 
    param = find_param_from_semantic(pass.vPrg, "TEXCOORD1");
@@ -873,6 +879,35 @@ void RenderChain::init_fvf(Pass &pass)
    {
       unsigned index = cgGetParameterResourceIndex(param);
       decl[index] = tex_coord1;
+      indices[index] = true;
+   }
+
+   // A dummy.
+   param = find_param_from_semantic(pass.vPrg, "COLOR");
+   if (!param)
+      param = find_param_from_semantic(pass.vPrg, "COLOR0");
+   if (param)
+   {
+      unsigned index = cgGetParameterResourceIndex(param);
+      decl[index] = color;
+      indices[index] = true;
+   }
+
+   unsigned index = 1;
+   for (unsigned i = 0; i < count; i++)
+   {
+      if (indices[i])
+      {
+         std::cerr << "Index #" << i << " bound!" << std::endl;
+         pass.attrib_map.push_back(0);
+      }
+      else
+      {
+         std::cerr << "Index #" << i << " not bound!" << std::endl;
+         pass.attrib_map.push_back(index);
+         decl[i] = DECL_FVF_TEXCOORD(index, 3, index + 1);
+         index++;
+      }
    }
 
    if (FAILED(dev->CreateVertexDeclaration(decl, &pass.vertex_decl)))

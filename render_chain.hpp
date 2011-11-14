@@ -72,6 +72,7 @@ class RenderChain
          unsigned last_width, last_height;
 
          IDirect3DVertexDeclaration9 *vertex_decl;
+         std::vector<unsigned> attrib_map;
       };
       std::vector<Pass> passes;
 

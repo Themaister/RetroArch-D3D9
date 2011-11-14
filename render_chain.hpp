@@ -33,6 +33,7 @@ class RenderChain
             const D3DVIEWPORT9 &final_viewport);
 
       void add_pass(const LinkInfo &info);
+      void add_lut(const std::string &id, const std::string &path, bool smooth);
 
       bool render(const void *data,
             unsigned width, unsigned height, unsigned pitch);
@@ -68,6 +69,17 @@ class RenderChain
          unsigned last_width, last_height;
       };
       std::vector<Pass> passes;
+
+      struct lut_info
+      {
+         IDirect3DTexture9 *tex;
+         std::string id;
+         bool smooth;
+      };
+      std::vector<lut_info> luts;
+      IDirect3DVertexBuffer9 *lut_vertex_buf;
+      void bind_luts(Pass &pass);
+      void bind_lut_vert(Pass &pass);
 
       D3DVIEWPORT9 final_viewport;
       unsigned frame_count;

@@ -397,6 +397,40 @@ static inline uint32_t next_pot(uint32_t v)
    return v;
 }
 
+void D3DVideo::init_luts(ConfigFile &conf, const std::string &basedir)
+{
+   std::string textures;
+   if (!conf.get("textures", textures))
+      return;
+
+   size_t pos = 0;
+   size_t new_pos = 0;
+
+   std::vector<std::string> list;
+   char *elem = strdup(textures.c_str());
+   const char *tex = strtok(elem, ";");
+   while (tex)
+   {
+      list.push_back(tex);
+      tex = strtok(nullptr, ";");
+   }
+   free(elem);
+
+   for (unsigned i = 0; i < list.size(); i++)
+   {
+      const std::string &id = list[i];
+
+      bool smooth = true;
+      conf.get(id + "_filter", smooth);
+
+      std::string path;
+      if (!conf.get(id, path))
+         throw std::runtime_error("Failed to get LUT texture path!");
+
+      chain->add_lut(id, basedir + path, smooth);
+   }
+}
+
 void D3DVideo::init_chain_multipass(const ssnes_video_info_t &info)
 {
    ConfigFile conf(info.cg_shader);
@@ -616,6 +650,8 @@ void D3DVideo::init_chain_multipass(const ssnes_video_info_t &info)
       link_info.shader_path = "";
       chain->add_pass(link_info);
    }
+
+   init_luts(conf, basedir);
 }
 
 bool D3DVideo::init_chain(const ssnes_video_info_t &video_info)

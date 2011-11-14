@@ -33,7 +33,7 @@ RenderChain::~RenderChain()
 RenderChain::RenderChain(IDirect3DDevice9 *dev_, CGcontext cgCtx_,
       const LinkInfo &info, PixelFormat fmt,
       const D3DVIEWPORT9 &final_viewport_)
-      : dev(dev_), cgCtx(cgCtx_), final_viewport(final_viewport_), frame_count(0)
+      : dev(dev_), cgCtx(cgCtx_), final_viewport(final_viewport_), frame_count(0), lut_vertex_buf(nullptr)
 {
    pixel_size = fmt == RGB15 ? 2 : 4;
    create_first_pass(info, fmt);
@@ -59,7 +59,18 @@ void RenderChain::clear()
          passes[i].vertex_buf->Release();
    }
 
+   for (unsigned i = 0; i < luts.size(); i++)
+   {
+      if (luts[i].tex)
+         luts[i].tex->Release();
+   }
+
+   if (lut_vertex_buf)
+      lut_vertex_buf->Release();
+   lut_vertex_buf = nullptr;
+
    passes.clear();
+   luts.clear();
 }
 
 void RenderChain::add_pass(const LinkInfo &info)
@@ -99,6 +110,69 @@ void RenderChain::add_pass(const LinkInfo &info)
    passes.push_back(pass);
 
    log_info(info);
+}
+
+void RenderChain::add_lut(const std::string &id,
+      const std::string &path,
+      bool smooth)
+{
+   IDirect3DTexture9 *lut;
+
+   std::cerr << "[Direct3D]: Loading LUT texture: " << path << std::endl;
+
+   if (FAILED(D3DXCreateTextureFromFileExA(
+               dev,
+               path.c_str(),
+               D3DX_DEFAULT_NONPOW2,
+               D3DX_DEFAULT_NONPOW2,
+               0,
+               0,
+               D3DFMT_FROM_FILE,
+               D3DPOOL_MANAGED,
+               smooth ? D3DX_FILTER_LINEAR : D3DX_FILTER_POINT,
+               0,
+               0,
+               nullptr,
+               nullptr,
+               &lut)))
+   {
+      throw std::runtime_error("Failed to load LUT!");
+   }
+
+   dev->SetTexture(0, lut);
+   dev->SetSamplerState(0, D3DSAMP_ADDRESSU, D3DTADDRESS_BORDER);
+   dev->SetSamplerState(0, D3DSAMP_ADDRESSV, D3DTADDRESS_BORDER);
+   dev->SetTexture(0, nullptr);
+
+   lut_info info = { lut, id, smooth };
+   luts.push_back(info);
+
+   if (!lut_vertex_buf)
+   {
+      if (FAILED(dev->CreateVertexBuffer(
+                  4 * sizeof(Vertex),
+                  0,
+                  FVF,
+                  D3DPOOL_DEFAULT,
+                  &lut_vertex_buf,
+                  nullptr)))
+      {
+         throw std::runtime_error("Failed to create Vertex buf");
+      }
+
+      Vertex vert[4] = {{0.0f}};
+      for (unsigned i = 0; i < 4; i++)
+         vert[i].z = 0.5f;
+      vert[1].u = 1.0f;
+      vert[3].u = 1.0f;
+      vert[2].v = 1.0f;
+      vert[3].v = 1.0f;
+
+      void *verts;
+      lut_vertex_buf->Lock(0, sizeof(vert), &verts, 0);
+      std::memcpy(verts, vert, sizeof(vert));
+      lut_vertex_buf->Unlock();
+   }
 }
 
 void RenderChain::start_render()
@@ -233,7 +307,7 @@ void RenderChain::create_first_pass(const LinkInfo &info, PixelFormat fmt)
             info.filter_linear ? D3DTEXF_LINEAR : D3DTEXF_POINT);
       dev->SetSamplerState(0, D3DSAMP_ADDRESSU, D3DTADDRESS_BORDER);
       dev->SetSamplerState(0, D3DSAMP_ADDRESSV, D3DTADDRESS_BORDER);
-      dev->SetRenderState(D3DRS_LIGHTING, FALSE);
+      //dev->SetRenderState(D3DRS_LIGHTING, FALSE);
       dev->SetTexture(0, nullptr);
    }
 
@@ -325,8 +399,8 @@ void RenderChain::set_vertices(Pass &pass,
       vert[1].u = _u;
       vert[2].u = 0.0f;
       vert[3].u = _u;
-      vert[0].v = 0;
-      vert[1].v = 0;
+      vert[0].v = 0.0f;
+      vert[1].v = 0.0f;
       vert[2].v = _v;
       vert[3].v = _v;
 
@@ -483,9 +557,12 @@ void RenderChain::render_pass(Pass &pass, unsigned pass_index)
 
    dev->SetStreamSource(0, pass.vertex_buf, 0, sizeof(Vertex));
 
+   if (lut_vertex_buf)
+      bind_lut_vert(pass);
    bind_orig(pass);
    bind_prev(pass);
    bind_pass(pass, pass_index);
+   bind_luts(pass);
 
    dev->Clear(0, 0, D3DCLEAR_TARGET, 0, 1, 0);
    if (SUCCEEDED(dev->BeginScene()))
@@ -710,6 +787,29 @@ void RenderChain::bind_pass(Pass &pass, unsigned pass_index)
    }
 }
 
+void RenderChain::bind_luts(Pass &pass)
+{
+   for (unsigned i = 0; i < luts.size(); i++)
+   {
+      CGparameter param = cgGetNamedParameter(pass.fPrg, luts[i].id.c_str());
+      if (param)
+      {
+         unsigned index = cgGetParameterResourceIndex(param);
+         dev->SetTexture(index, luts[i].tex);
+         dev->SetSamplerState(index, D3DSAMP_MAGFILTER,
+               luts[i].smooth ? D3DTEXF_LINEAR : D3DTEXF_POINT);
+         dev->SetSamplerState(index, D3DSAMP_MINFILTER,
+               luts[i].smooth ? D3DTEXF_LINEAR : D3DTEXF_POINT);
+      }
+   }
+}
+
+// FIXME: This breaks shit ...
+void RenderChain::bind_lut_vert(Pass &pass)
+{
+   //dev->SetStreamSource(1, lut_vertex_buf, 0, sizeof(Vertex));
+}
+
 void RenderChain::unbind_pass()
 {
    // Have to be a bit anal about it.
@@ -743,14 +843,6 @@ void RenderChain::init_fvf()
       DECL_FVF(5)
       DECL_FVF(6)
       DECL_FVF(7)
-      DECL_FVF(8)
-      DECL_FVF(9)
-      DECL_FVF(10)
-      DECL_FVF(11)
-      DECL_FVF(12)
-      DECL_FVF(13)
-      DECL_FVF(14)
-      DECL_FVF(15)
 
       D3DDECL_END()
    };

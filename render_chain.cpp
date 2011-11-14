@@ -864,8 +864,6 @@ void RenderChain::init_fvf(Pass &pass)
       unsigned index = cgGetParameterResourceIndex(param);
       decl[index] = position_decl;
       indices[index] = true;
-      min_indice = std::min(min_indice, index);
-      max_indice = std::max(max_indice, index);
    }
 
    param = find_param_from_semantic(pass.vPrg, "TEXCOORD");
@@ -876,8 +874,6 @@ void RenderChain::init_fvf(Pass &pass)
       unsigned index = cgGetParameterResourceIndex(param);
       decl[index] = tex_coord0;
       indices[index] = true;
-      min_indice = std::min(min_indice, index);
-      max_indice = std::max(max_indice, index);
    }
 
    param = find_param_from_semantic(pass.vPrg, "TEXCOORD1");
@@ -886,8 +882,6 @@ void RenderChain::init_fvf(Pass &pass)
       unsigned index = cgGetParameterResourceIndex(param);
       decl[index] = tex_coord1;
       indices[index] = true;
-      min_indice = std::min(min_indice, index);
-      max_indice = std::max(max_indice, index);
    }
 
    // A dummy.
@@ -899,11 +893,9 @@ void RenderChain::init_fvf(Pass &pass)
       unsigned index = cgGetParameterResourceIndex(param);
       decl[index] = color;
       indices[index] = true;
-      min_indice = std::min(min_indice, index);
-      max_indice = std::max(max_indice, index);
    }
 
-   unsigned index = 3;
+   unsigned index = 3; // Stream {0, 1, 2} are already taken.
    for (unsigned i = 0; i < count; i++)
    {
       if (indices[i])

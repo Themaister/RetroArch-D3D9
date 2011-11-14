@@ -148,6 +148,14 @@ void RenderChain::add_lut(const std::string &id,
    luts.push_back(info);
 }
 
+void RenderChain::add_state_tracker(const std::string &program,
+      const std::string &py_class,
+      const std::vector<std::string> &uniforms)
+{
+   tracker = std::unique_ptr<StateTracker>(new StateTracker(
+            program, py_class, uniforms));
+}
+
 void RenderChain::start_render()
 {
    passes[0].tex = prev.tex[prev.ptr];
@@ -546,6 +554,7 @@ void RenderChain::render_pass(Pass &pass, unsigned pass_index)
    bind_prev(pass);
    bind_pass(pass, pass_index);
    bind_luts(pass);
+   bind_tracker(pass);
 
    dev->Clear(0, 0, D3DCLEAR_TARGET, 0, 1, 0);
    if (SUCCEEDED(dev->BeginScene()))
@@ -844,8 +853,6 @@ void RenderChain::init_fvf(Pass &pass)
          break;
    }
 
-   std::cerr << "Found " << count << " varyings!" << std::endl;
-
    // This is completely insane.
    // We do not have a good and easy way of setting up our
    // attribute streams, so we have to do it ourselves, yay!
@@ -910,5 +917,19 @@ void RenderChain::init_fvf(Pass &pass)
 
    if (FAILED(dev->CreateVertexDeclaration(decl, &pass.vertex_decl)))
       throw std::runtime_error("Failed to set up FVF!");
+}
+
+void RenderChain::bind_tracker(Pass &pass)
+{
+   if (!tracker)
+      return;
+
+   auto res = tracker->get_uniforms(frame_count);
+   for (unsigned i = 0; i < res.size(); i++)
+   {
+      std::cerr << "Uniform: " << res[i].first << " = " << res[i].second << std::endl;
+      set_cg_param(pass.fPrg, res[i].first.c_str(), res[i].second);
+      set_cg_param(pass.vPrg, res[i].first.c_str(), res[i].second);
+   }
 }
 

@@ -5,6 +5,8 @@
 #include "D3DVideo.h"
 #include <map>
 #include <utility>
+#include "state_tracker.hpp"
+#include <memory>
 
 struct Vertex
 {
@@ -37,6 +39,9 @@ class RenderChain
 
       void add_pass(const LinkInfo &info);
       void add_lut(const std::string &id, const std::string &path, bool smooth);
+      void add_state_tracker(const std::string &program,
+            const std::string &py_class,
+            const std::vector<std::string> &uniforms);
 
       bool render(const void *data,
             unsigned width, unsigned height, unsigned pitch);
@@ -52,6 +57,8 @@ class RenderChain
       IDirect3DDevice9 *dev;
       CGcontext cgCtx;
       unsigned pixel_size;
+
+      std::unique_ptr<StateTracker> tracker;
 
       enum { Textures = 8, TexturesMask = Textures - 1 };
       struct
@@ -121,6 +128,7 @@ class RenderChain
       void bind_orig(Pass &pass);
       void bind_prev(Pass &pass);
       void bind_pass(Pass &pass, unsigned pass_index);
+      void bind_tracker(Pass &pass);
       void unbind_all();
 
       void init_fvf(Pass &pass);

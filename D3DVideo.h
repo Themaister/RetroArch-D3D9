@@ -60,6 +60,7 @@ class D3DVideo
       bool init_cg();
       void deinit_cg();
 
+      void init_imports(ConfigFile &conf, const std::string &basedir);
       void init_luts(ConfigFile &conf, const std::string &basedir);
       void init_chain_singlepass(const ssnes_video_info_t &video_info);
       void init_chain_multipass(const ssnes_video_info_t &video_info);

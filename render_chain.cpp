@@ -23,7 +23,7 @@ namespace Global
       "}";
 }
 
-#define FVF (D3DFVF_XYZ | D3DFVF_TEX1)
+#define FVF 0
 
 RenderChain::~RenderChain()
 {
@@ -33,11 +33,10 @@ RenderChain::~RenderChain()
 RenderChain::RenderChain(IDirect3DDevice9 *dev_, CGcontext cgCtx_,
       const LinkInfo &info, PixelFormat fmt,
       const D3DVIEWPORT9 &final_viewport_)
-      : dev(dev_), cgCtx(cgCtx_), final_viewport(final_viewport_), frame_count(0), lut_vertex_buf(nullptr)
+      : dev(dev_), cgCtx(cgCtx_), final_viewport(final_viewport_), frame_count(0)
 {
    pixel_size = fmt == RGB15 ? 2 : 4;
    create_first_pass(info, fmt);
-   init_fvf();
    log_info(info);
 }
 
@@ -51,12 +50,16 @@ void RenderChain::clear()
          prev.vertex_buf[i]->Release();
    }
 
+   if (passes[0].vertex_decl)
+      passes[0].vertex_decl->Release();
    for (unsigned i = 1; i < passes.size(); i++)
    {
       if (passes[i].tex)
          passes[i].tex->Release();
       if (passes[i].vertex_buf)
          passes[i].vertex_buf->Release();
+      if (passes[i].vertex_decl)
+         passes[i].vertex_decl->Release();
    }
 
    for (unsigned i = 0; i < luts.size(); i++)
@@ -64,10 +67,6 @@ void RenderChain::clear()
       if (luts[i].tex)
          luts[i].tex->Release();
    }
-
-   if (lut_vertex_buf)
-      lut_vertex_buf->Release();
-   lut_vertex_buf = nullptr;
 
    passes.clear();
    luts.clear();
@@ -81,6 +80,7 @@ void RenderChain::add_pass(const LinkInfo &info)
    pass.last_height = 0;
 
    compile_shaders(pass, info.shader_path);
+   init_fvf(pass);
 
    if (FAILED(dev->CreateVertexBuffer(
                4 * sizeof(Vertex),
@@ -146,33 +146,6 @@ void RenderChain::add_lut(const std::string &id,
 
    lut_info info = { lut, id, smooth };
    luts.push_back(info);
-
-   if (!lut_vertex_buf)
-   {
-      if (FAILED(dev->CreateVertexBuffer(
-                  4 * sizeof(Vertex),
-                  0,
-                  FVF,
-                  D3DPOOL_DEFAULT,
-                  &lut_vertex_buf,
-                  nullptr)))
-      {
-         throw std::runtime_error("Failed to create Vertex buf");
-      }
-
-      Vertex vert[4] = {{0.0f}};
-      for (unsigned i = 0; i < 4; i++)
-         vert[i].z = 0.5f;
-      vert[1].u = 1.0f;
-      vert[3].u = 1.0f;
-      vert[2].v = 1.0f;
-      vert[3].v = 1.0f;
-
-      void *verts;
-      lut_vertex_buf->Lock(0, sizeof(vert), &verts, 0);
-      std::memcpy(verts, vert, sizeof(vert));
-      lut_vertex_buf->Unlock();
-   }
 }
 
 void RenderChain::start_render()
@@ -312,6 +285,7 @@ void RenderChain::create_first_pass(const LinkInfo &info, PixelFormat fmt)
    }
 
    compile_shaders(pass, info.shader_path);
+   init_fvf(pass);
    passes.push_back(pass);
 }
 
@@ -403,6 +377,15 @@ void RenderChain::set_vertices(Pass &pass,
       vert[1].v = 0.0f;
       vert[2].v = _v;
       vert[3].v = _v;
+
+      vert[0].lut_u = 0.0f;
+      vert[1].lut_u = 1.0f;
+      vert[2].lut_u = 0.0f;
+      vert[3].lut_u = 1.0f;
+      vert[0].lut_v = 0.0f;
+      vert[1].lut_v = 0.0f;
+      vert[2].lut_v = 1.0f;
+      vert[3].lut_v = 1.0f;
 
       // Align texels and vertices.
       for (unsigned i = 0; i < 4; i++)
@@ -555,10 +538,9 @@ void RenderChain::render_pass(Pass &pass, unsigned pass_index)
    dev->SetSamplerState(0, D3DSAMP_MAGFILTER,
          pass.info.filter_linear ? D3DTEXF_LINEAR : D3DTEXF_POINT);
 
+   dev->SetVertexDeclaration(pass.vertex_decl);
    dev->SetStreamSource(0, pass.vertex_buf, 0, sizeof(Vertex));
 
-   if (lut_vertex_buf)
-      bind_lut_vert(pass);
    bind_orig(pass);
    bind_prev(pass);
    bind_pass(pass, pass_index);
@@ -578,8 +560,7 @@ void RenderChain::render_pass(Pass &pass, unsigned pass_index)
    dev->SetSamplerState(0, D3DSAMP_MAGFILTER,
          D3DTEXF_NONE);
 
-   unbind_pass();
-   unbind_prev();
+   unbind_all();
 }
 
 void RenderChain::log_info(const LinkInfo &info)
@@ -647,13 +628,15 @@ void RenderChain::bind_orig(Pass &pass)
             passes[0].info.filter_linear ? D3DTEXF_LINEAR : D3DTEXF_POINT);
       dev->SetSamplerState(index, D3DSAMP_MINFILTER,
             passes[0].info.filter_linear ? D3DTEXF_LINEAR : D3DTEXF_POINT);
+      bound_tex.push_back(index);
    }
 
    param = cgGetNamedParameter(pass.vPrg, "ORIG.tex_coord");
    if (param)
    {
-      unsigned index = cgGetParameterResourceIndex(param);
+      unsigned index = cgGetParameterResourceIndex(param) + 1;
       dev->SetStreamSource(index, passes[0].vertex_buf, 0, sizeof(Vertex));
+      bound_vert.push_back(index);
    }
 }
 
@@ -701,7 +684,7 @@ void RenderChain::bind_prev(Pass &pass)
 
          IDirect3DTexture9 *tex = prev.tex[(prev.ptr - (i + 1)) & TexturesMask];
          dev->SetTexture(index, tex);
-         bound_prev.push_back(index);
+         bound_tex.push_back(index);
 
          dev->SetSamplerState(index, D3DSAMP_MAGFILTER,
                passes[0].info.filter_linear ? D3DTEXF_LINEAR : D3DTEXF_POINT);
@@ -712,24 +695,13 @@ void RenderChain::bind_prev(Pass &pass)
       param = cgGetNamedParameter(pass.vPrg, attr_coord);
       if (param)
       {
-         unsigned index = cgGetParameterResourceIndex(param);
+         unsigned index = cgGetParameterResourceIndex(param) + 1;
          IDirect3DVertexBuffer9 *vert_buf = prev.vertex_buf[(prev.ptr - (i + 1)) & TexturesMask];
-         bound_prev_vert.push_back(index);
+         bound_vert.push_back(index);
 
          dev->SetStreamSource(index, vert_buf, 0, sizeof(Vertex));
       }
    }
-}
-
-void RenderChain::unbind_prev()
-{
-   for (unsigned i = 0; i < bound_prev.size(); i++)
-      dev->SetTexture(bound_prev[i], nullptr);
-   bound_prev.clear();
-
-   for (unsigned i = 0; i < bound_prev_vert.size(); i++)
-      dev->SetStreamSource(bound_prev_vert[i], nullptr, 0, 0);
-   bound_prev_vert.clear();
 }
 
 void RenderChain::bind_pass(Pass &pass, unsigned pass_index)
@@ -769,7 +741,7 @@ void RenderChain::bind_pass(Pass &pass, unsigned pass_index)
       if (param)
       {
          unsigned index = cgGetParameterResourceIndex(param);
-         bound_pass.push_back(index);
+         bound_tex.push_back(index);
 
          dev->SetTexture(index, passes[i].tex);
          dev->SetSamplerState(index, D3DSAMP_MAGFILTER,
@@ -781,8 +753,9 @@ void RenderChain::bind_pass(Pass &pass, unsigned pass_index)
       param = cgGetNamedParameter(pass.vPrg, attr_tex_coord.c_str());
       if (param)
       {
-         unsigned index = cgGetParameterResourceIndex(param);
+         unsigned index = cgGetParameterResourceIndex(param) + 1;
          dev->SetStreamSource(index, passes[i].vertex_buf, 0, sizeof(Vertex));
+         bound_vert.push_back(index);
       }
    }
 }
@@ -800,59 +773,109 @@ void RenderChain::bind_luts(Pass &pass)
                luts[i].smooth ? D3DTEXF_LINEAR : D3DTEXF_POINT);
          dev->SetSamplerState(index, D3DSAMP_MINFILTER,
                luts[i].smooth ? D3DTEXF_LINEAR : D3DTEXF_POINT);
+         bound_tex.push_back(index);
       }
    }
 }
 
-// FIXME: This breaks shit ...
-void RenderChain::bind_lut_vert(Pass &pass)
-{
-   //dev->SetStreamSource(1, lut_vertex_buf, 0, sizeof(Vertex));
-}
-
-void RenderChain::unbind_pass()
+void RenderChain::unbind_all()
 {
    // Have to be a bit anal about it.
-   for (unsigned i = 0; i < bound_pass.size(); i++)
+   // Render targets hate it when they have filters apparently.
+   for (unsigned i = 0; i < bound_tex.size(); i++)
    {
-      dev->SetSamplerState(bound_pass[i], D3DSAMP_MAGFILTER,
+      dev->SetSamplerState(bound_tex[i], D3DSAMP_MAGFILTER,
             D3DTEXF_NONE);
-      dev->SetSamplerState(bound_pass[i], D3DSAMP_MINFILTER,
+      dev->SetSamplerState(bound_tex[i], D3DSAMP_MINFILTER,
             D3DTEXF_NONE);
-      dev->SetTexture(bound_pass[i], nullptr);
+      dev->SetTexture(bound_tex[i], nullptr);
    }
 
-   bound_pass.clear();
+   for (unsigned i = 0; i < bound_vert.size(); i++)
+      dev->SetStreamSource(bound_vert[i], 0, 0, 0);
+
+   bound_tex.clear();
+   bound_vert.clear();
 }
 
-#define DECL_FVF(index) \
-   { index, 3 * sizeof(float), D3DDECLTYPE_FLOAT2, D3DDECLMETHOD_DEFAULT, \
-      D3DDECLUSAGE_TEXCOORD, index },
-
-void RenderChain::init_fvf()
+static inline CGparameter find_param_from_semantic(CGprogram prog, const std::string &sem)
 {
-   const D3DVERTEXELEMENT9 fvfs[] = 
+   CGparameter param = cgGetFirstParameter(prog, CG_PROGRAM);
+   while (param)
    {
-      { 0, 0 * sizeof(float), D3DDECLTYPE_FLOAT3, D3DDECLMETHOD_DEFAULT,
-         D3DDECLUSAGE_POSITION, 0 },
-      DECL_FVF(0)
-      DECL_FVF(1)
-      DECL_FVF(2)
-      DECL_FVF(3)
-      DECL_FVF(4)
-      DECL_FVF(5)
-      DECL_FVF(6)
-      DECL_FVF(7)
+      if (cgGetParameterSemantic(param) &&
+            sem == cgGetParameterSemantic(param) &&
+            cgGetParameterDirection(param) == CG_IN)
+         return param;
+      param = cgGetNextParameter(param);
+   }
 
-      D3DDECL_END()
-   };
+   return nullptr;
+}
 
-   IDirect3DVertexDeclaration9 *decl;
-   if (FAILED(dev->CreateVertexDeclaration(fvfs, &decl)))
+#define DECL_FVF_POSITION(stream) \
+   { (WORD)(stream), 0 * sizeof(float), D3DDECLTYPE_FLOAT3, D3DDECLMETHOD_DEFAULT, \
+      D3DDECLUSAGE_POSITION, 0 }
+#define DECL_FVF_TEXCOORD(stream, offset, index) \
+   { (WORD)(stream), (WORD)(offset * sizeof(float)), D3DDECLTYPE_FLOAT2, D3DDECLMETHOD_DEFAULT, \
+      D3DDECLUSAGE_TEXCOORD, (BYTE)(index) }
+
+void RenderChain::init_fvf(Pass &pass)
+{
+   static const D3DVERTEXELEMENT9 decl_end = D3DDECL_END();
+   static const D3DVERTEXELEMENT9 position_decl = DECL_FVF_POSITION(0);
+   static const D3DVERTEXELEMENT9 tex_coord0 = DECL_FVF_TEXCOORD(0, 3, 0);
+   static const D3DVERTEXELEMENT9 tex_coord1 = DECL_FVF_TEXCOORD(0, 5, 1);
+
+   D3DVERTEXELEMENT9 decl[MAXD3DDECLLENGTH] = {{0}};
+   if (cgD3D9GetVertexDeclaration(pass.vPrg, decl) == CG_FALSE)
+      throw std::runtime_error("Failed to get VertexDeclaration!");
+
+   unsigned count;
+   for (count = 0; count < MAXD3DDECLLENGTH; count++)
+   {
+      if (std::memcmp(&decl_end, &decl[count], sizeof(decl_end)) == 0)
+         break;
+   }
+
+   std::cerr << "Found " << count << " varyings!" << std::endl;
+
+   // This is completely insane.
+   // We do not have a good and easy way of setting up our
+   // attribute streams, so we have to do it ourselves, yay!
+   // Stream 0 => POSITION, TEXCOORD0, TEXCOORD1
+   // Stream {1..N} => Texture coord streams for resource index {0..N-1}.
+   // Some streams might end up empty, but hey ;)
+
+   for (unsigned i = 0; i < count; i++)
+      decl[i] = DECL_FVF_TEXCOORD(i + 1, 3, i + 2);
+
+   CGparameter param = find_param_from_semantic(pass.vPrg, "POSITION");
+   if (!param)
+      param = find_param_from_semantic(pass.vPrg, "POSITION0");
+   if (param)
+   {
+      unsigned index = cgGetParameterResourceIndex(param);
+      decl[index] = position_decl;
+   }
+
+   param = find_param_from_semantic(pass.vPrg, "TEXCOORD");
+   if (!param)
+      param = find_param_from_semantic(pass.vPrg, "TEXCOORD0");
+   if (param)
+   {
+      unsigned index = cgGetParameterResourceIndex(param);
+      decl[index] = tex_coord0;
+   }
+
+   param = find_param_from_semantic(pass.vPrg, "TEXCOORD1");
+   if (param)
+   {
+      unsigned index = cgGetParameterResourceIndex(param);
+      decl[index] = tex_coord1;
+   }
+
+   if (FAILED(dev->CreateVertexDeclaration(decl, &pass.vertex_decl)))
       throw std::runtime_error("Failed to set up FVF!");
-
-   if (FAILED(dev->SetVertexDeclaration(decl)))
-      throw std::runtime_error("Failed to set FVF!");
-   decl->Release();
 }
 

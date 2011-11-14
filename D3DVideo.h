@@ -13,9 +13,6 @@
 #include <memory>
 
 class ConfigFile;
-
-#define FVF (D3DFVF_XYZ | D3DFVF_TEX1)
-
 class RenderChain;
 
 class D3DVideo

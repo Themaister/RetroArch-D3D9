@@ -3,11 +3,14 @@
 
 #include "common.h"
 #include "D3DVideo.h"
+#include <map>
+#include <utility>
 
 struct Vertex
 {
    float x, y, z;
    float u, v;
+   float lut_u, lut_v;
 };
 
 struct LinkInfo
@@ -41,7 +44,7 @@ class RenderChain
       static void convert_geometry(const LinkInfo &info,
             unsigned &out_width, unsigned &out_height,
             unsigned width, unsigned height,
-	    const D3DVIEWPORT9 &final_viewport);
+            const D3DVIEWPORT9 &final_viewport);
 
       void clear();
       ~RenderChain();
@@ -67,6 +70,8 @@ class RenderChain
          IDirect3DVertexBuffer9 *vertex_buf;
          CGprogram vPrg, fPrg;
          unsigned last_width, last_height;
+
+         IDirect3DVertexDeclaration9 *vertex_decl;
       };
       std::vector<Pass> passes;
 
@@ -77,9 +82,6 @@ class RenderChain
          bool smooth;
       };
       std::vector<lut_info> luts;
-      IDirect3DVertexBuffer9 *lut_vertex_buf;
-      void bind_luts(Pass &pass);
-      void bind_lut_vert(Pass &pass);
 
       D3DVIEWPORT9 final_viewport;
       unsigned frame_count;
@@ -112,17 +114,15 @@ class RenderChain
       void start_render();
       void end_render();
 
-      std::vector<unsigned> bound_prev;
-      std::vector<unsigned> bound_prev_vert;
+      std::vector<unsigned> bound_tex;
+      std::vector<unsigned> bound_vert;
+      void bind_luts(Pass &pass);
       void bind_orig(Pass &pass);
       void bind_prev(Pass &pass);
-      void unbind_prev();
-
-      std::vector<unsigned> bound_pass;
       void bind_pass(Pass &pass, unsigned pass_index);
-      void unbind_pass();
+      void unbind_all();
 
-      void init_fvf();
+      void init_fvf(Pass &pass);
 };
 
 #endif

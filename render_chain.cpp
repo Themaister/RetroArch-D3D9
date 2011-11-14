@@ -849,8 +849,7 @@ void RenderChain::init_fvf(Pass &pass)
    // We do not have a good and easy way of setting up our
    // attribute streams, so we have to do it ourselves, yay!
    // Stream 0 => POSITION, TEXCOORD0, TEXCOORD1
-   // Stream {1..N} => Texture coord streams for resource index {0..N-1}.
-   // Some streams might end up empty, but hey ;)
+   // Stream {1..N} => Texture coord streams for resource index {1..}.
 
    std::vector<bool> indices(count);
 

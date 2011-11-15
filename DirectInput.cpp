@@ -174,7 +174,7 @@ BOOL DirectInput::init_joypad(const DIDEVICEINSTANCE *instance)
    {
       dev->SetDataFormat(&c_dfDIJoystick2);
       dev->SetCooperativeLevel(D3DVideo::hwnd(), 
-            DISCL_NONEXCLUSIVE | DISCL_FOREGROUND);
+            DISCL_NONEXCLUSIVE | DISCL_BACKGROUND);
 
       dev->EnumObjects(Callback::EnumAxes, dev, DIDFT_ABSAXIS);
    }

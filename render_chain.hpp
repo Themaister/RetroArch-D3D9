@@ -34,7 +34,11 @@ class RenderChain
    public:
       enum PixelFormat { RGB15, ARGB };
 
-      RenderChain(IDirect3DDevice9 *dev, CGcontext cgCtx, const LinkInfo &info, PixelFormat fmt,
+      RenderChain(const ssnes_video_info_t &video_info,
+            IDirect3DDevice9 *dev,
+            CGcontext cgCtx,
+            const LinkInfo &info,
+            PixelFormat fmt,
             const D3DVIEWPORT9 &final_viewport);
 
       void add_pass(const LinkInfo &info);
@@ -57,6 +61,8 @@ class RenderChain
       IDirect3DDevice9 *dev;
       CGcontext cgCtx;
       unsigned pixel_size;
+
+      const ssnes_video_info_t &video_info;
 
       std::unique_ptr<StateTracker> tracker;
 

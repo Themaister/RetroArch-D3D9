@@ -6,6 +6,8 @@
 #ifndef __SSNES_VIDEO_DRIVER_H
 #define __SSNES_VIDEO_DRIVER_H
 
+#include <stddef.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -22,10 +24,10 @@ extern "C" {
 #define SSNES_API_CALLTYPE
 #endif
 
-#define SSNES_GRAPHICS_API_VERSION 1
+#define SSNES_GRAPHICS_API_VERSION 2
 
 // Since we don't want to rely on C++ or C99 for a proper boolean type,
-// and make sure return semantics are perfectly clear ... ;)
+// make sure return semantics are perfectly clear ... ;)
 
 #ifndef SSNES_OK
 #define SSNES_OK 1
@@ -45,6 +47,23 @@ extern "C" {
 
 #define SSNES_COLOR_FORMAT_XRGB1555 0
 #define SSNES_COLOR_FORMAT_ARGB8888 1
+
+#define SSNES_INPUT_SCALE_BASE 256
+
+typedef struct py_state py_state_t;
+
+// Create a new runtime for Python.
+// py_script: The python script to be loaded. If is_file is true, this will be the full path to a file.
+// If false, it will be an UTF-8 encoded string of the script.
+// is_file: Tells if py_script is the path to a script, or a script itself.
+// py_class: name of the class being instantiated. 
+typedef py_state_t *(*python_state_new_cb)(const char *py_script, unsigned is_file, const char *py_class);
+// Grabs a value from the Python runtime.
+// id: The uniform (class method) to be called.
+// frame_count: Passes frame_count as an argument to the script.
+typedef float (*python_state_get_cb)(py_state_t *handle, const char *id, unsigned frame_count);
+// Frees the runtime.
+typedef void (*python_state_free_cb)(py_state_t *handle);
 
 typedef struct ssnes_video_info
 { 
@@ -79,12 +98,9 @@ typedef struct ssnes_video_info
 
    // input_scale defines the maximum size of the picture that will
    // ever be used with the frame callback.
-   // The maximum resolution is a multiple of 256x256 size,
+   // The maximum resolution is a multiple of 256x256 size (SSNES_INPUT_SCALE_BASE),
    // so an input scale of 2
    // means you should allocate a texture or of 512x512.
-   // It is normally set to 2 due to the possibility of
-   // pseudo-hires on the SNES.
-   // CPU filters or otherwise might increase this value.
    unsigned input_scale;
 
    // Defines the coloring format used of the input frame.
@@ -112,6 +128,13 @@ typedef struct ssnes_video_info
 
    // A title that should be displayed in the title bar of the window.
    const char *title_hint;
+
+   // Functions to peek into the python runtime for shaders.
+   // Check typedefs above for explanation.
+   // These may be NULL if SSNES is not built with Python support.
+   python_state_new_cb python_state_new;
+   python_state_get_cb python_state_get;
+   python_state_free_cb python_state_free;
 } ssnes_video_info_t;
 
 // Some convenience macros.
@@ -181,20 +204,20 @@ typedef struct ssnes_input_driver
    // The range of this is [0, 1],
    // where 0 means any displacement will register,
    // and 1 means the axis has to be pressed all the way to register.
-   void* (*init)(const int joypad_index[5], float axis_threshold);
+   void *(*init)(const int joypad_index[5], float axis_threshold);
 
    // Polls input. Called once every frame.
-   void (*poll)(void* data);
+   void (*poll)(void *data);
 
    // Queries input state for a certain key on a certain player.
    // Players are 1 - 5.
    // For digital inputs, pressed key is 1, not pressed key is 0.
    // Analog values have same range as a signed 16-bit integer.
-   int (*input_state)(void* data, const struct ssnes_keybind *bind,
+   int (*input_state)(void *data, const struct ssnes_keybind *bind,
          unsigned player);
 
    // Frees the input struct.
-   void (*free)(void* data);
+   void (*free)(void *data);
 
    // Human readable indentification string.
    const char *ident;
@@ -208,7 +231,7 @@ typedef struct ssnes_video_driver
    // Should the video driver request that a certain input driver is used,
    // it is possible to set the driver to *input.
    // If no certain driver is desired, set *input to NULL.
-   void* (*init)(const ssnes_video_info_t *video, 
+   void *(*init)(const ssnes_video_info_t *video, 
          const ssnes_input_driver_t **input); 
 
    // Updates frame on the screen. 
@@ -218,13 +241,13 @@ typedef struct ssnes_video_driver
    // 
    // When msg is non-NULL, 
    // it's a message that should be displayed to the user.
-   int (*frame)(void* data, const void* frame, 
+   int (*frame)(void *data, const void *frame, 
          unsigned width, unsigned height, unsigned pitch, const char *msg);
 
    // Requests nonblocking operation. 
    // True = VSync is turned off. 
    // False = VSync is turned on.
-   void (*set_nonblock_state)(void* data, int toggle);
+   void (*set_nonblock_state)(void *data, int toggle);
 
    // This must return false when the user exits the emulator.
    int (*alive)(void *data);
@@ -233,7 +256,7 @@ typedef struct ssnes_video_driver
    int (*focus)(void *data);
 
    // Frees the video driver.
-   void (*free)(void* data);
+   void (*free)(void *data);
 
    // A human-readable identification of the video driver.
    const char *ident;

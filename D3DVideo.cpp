@@ -378,7 +378,9 @@ void D3DVideo::init_chain_singlepass(const ssnes_video_info_t &video_info)
    info.tex_w = info.tex_h = 256 * video_info.input_scale;
    info.scale_type_x = info.scale_type_y = LinkInfo::Viewport;
 
-   chain = std::unique_ptr<RenderChain>(new RenderChain(dev, cgCtx,
+   chain = std::unique_ptr<RenderChain>(new RenderChain(
+               video_info,
+               dev, cgCtx,
                info,
                video_info.color_format == SSNES_COLOR_FORMAT_XRGB1555 ?
                RenderChain::RGB15 : RenderChain::ARGB,
@@ -621,7 +623,9 @@ void D3DVideo::init_chain_multipass(const ssnes_video_info_t &info)
    link_info.tex_w = link_info.tex_h = info.input_scale * 256;
 
    chain = std::unique_ptr<RenderChain>(
-         new RenderChain(dev, cgCtx,
+         new RenderChain(
+            video_info,
+            dev, cgCtx,
             link_info,
             info.color_format == SSNES_COLOR_FORMAT_XRGB1555 ?
             RenderChain::RGB15 : RenderChain::ARGB,

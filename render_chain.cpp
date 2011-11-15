@@ -30,10 +30,12 @@ RenderChain::~RenderChain()
    clear();
 }
 
-RenderChain::RenderChain(IDirect3DDevice9 *dev_, CGcontext cgCtx_,
+RenderChain::RenderChain(const ssnes_video_info_t &video_info,
+      IDirect3DDevice9 *dev_,
+      CGcontext cgCtx_,
       const LinkInfo &info, PixelFormat fmt,
       const D3DVIEWPORT9 &final_viewport_)
-      : dev(dev_), cgCtx(cgCtx_), final_viewport(final_viewport_), frame_count(0)
+   : dev(dev_), cgCtx(cgCtx_), final_viewport(final_viewport_), frame_count(0), video_info(video_info)
 {
    pixel_size = fmt == RGB15 ? 2 : 4;
    create_first_pass(info, fmt);
@@ -153,7 +155,7 @@ void RenderChain::add_state_tracker(const std::string &program,
       const std::vector<std::string> &uniforms)
 {
    tracker = std::unique_ptr<StateTracker>(new StateTracker(
-            program, py_class, uniforms));
+            program, py_class, uniforms, video_info));
 }
 
 void RenderChain::start_render()

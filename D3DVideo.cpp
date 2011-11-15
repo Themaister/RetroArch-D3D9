@@ -759,6 +759,7 @@ void D3DVideo::update_title()
 void D3DVideo::init_dwm()
 {
    dwm.active = false;
+#ifdef DWM_FLIPPING // Doesn't appear to work as intended yet.
    dwm.lib = LoadLibraryA("dwmapi.dll");
    if (dwm.lib)
    {
@@ -778,6 +779,7 @@ void D3DVideo::init_dwm()
 
    if (dwm.active)
       std::cerr << "[Direct3D: DWM flipping activated!" << std::endl;
+#endif
 }
 
 void D3DVideo::deinit_dwm()

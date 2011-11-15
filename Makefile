@@ -30,6 +30,10 @@ CFLAGS += -O3 -std=gnu99 -Wall -pedantic
 CXXFLAGS += -O3 -std=gnu++0x -fcheck-new
 LDFLAGS += -shared -Wl,--version-script=link.T -Wl,--no-undefined -static-libgcc -static-libstdc++ -s
 
+ifeq ($(DWM_FLIPPING),1)
+   CXXFLAGS += -DDWM_FLIPPING
+endif
+
 all: $(TARGET)
 
 $(TARGET): $(OBJECTS)

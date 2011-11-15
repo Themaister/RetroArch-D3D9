@@ -929,7 +929,6 @@ void RenderChain::bind_tracker(Pass &pass)
    auto res = tracker->get_uniforms(frame_count);
    for (unsigned i = 0; i < res.size(); i++)
    {
-      std::cerr << "Uniform: " << res[i].first << " = " << res[i].second << std::endl;
       set_cg_param(pass.fPrg, res[i].first.c_str(), res[i].second);
       set_cg_param(pass.vPrg, res[i].first.c_str(), res[i].second);
    }

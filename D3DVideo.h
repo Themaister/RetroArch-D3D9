@@ -31,6 +31,16 @@ class D3DVideo
       static HWND hwnd();
 
    private:
+
+      struct
+      {
+         bool active;
+         HMODULE lib;
+         HRESULT (*WINAPI dwm_flush)();
+      } dwm;
+      void init_dwm();
+      void deinit_dwm();
+
       WNDCLASSEX windowClass;
       HWND hWnd;
       IDirect3D9 *g_pD3D;
@@ -51,7 +61,6 @@ class D3DVideo
       void deinit();
       ssnes_video_info_t video_info;
 
-      bool nonblock;
       bool needs_restore;
       bool dwm_enabled;
       bool restore();

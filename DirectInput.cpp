@@ -8,6 +8,7 @@
 #include <assert.h>
 #include <stdexcept>
 #include <utility>
+#include <cstring>
 
 namespace Callback
 {
@@ -129,6 +130,7 @@ DirectInput::DirectInput(const int joypad_index[5], float threshold) :
 {
    std::fill(di_state, di_state + 256, 0);
    std::copy(joypad_index, joypad_index + 5, joypad_indices);
+   std::memset(joy_state, 0, sizeof(joy_state));
 
    if (FAILED(DirectInput8Create(
                GetModuleHandle(NULL), DIRECTINPUT_VERSION, IID_IDirectInput8, 

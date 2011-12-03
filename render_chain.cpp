@@ -371,11 +371,11 @@ void RenderChain::set_vertices(Pass &pass,
          vert[i].z = 0.5f;
 
       vert[0].x = 0.0f;
-      vert[1].x = out_width - 1.0f;
+      vert[1].x = out_width;
       vert[2].x = 0.0f;
-      vert[3].x = out_width - 1.0f;
-      vert[0].y = out_height - 1.0f;
-      vert[1].y = out_height - 1.0f;
+      vert[3].x = out_width;
+      vert[0].y = out_height;
+      vert[1].y = out_height;
       vert[2].y = 0.0f;
       vert[3].y = 0.0f;
 
@@ -411,7 +411,7 @@ void RenderChain::set_vertices(Pass &pass,
    }
 
    D3DXMATRIX proj;
-   D3DXMatrixOrthoOffCenterLH(&proj, 0, vp_width - 1, 0, vp_height - 1, 0, 1);
+   D3DXMatrixOrthoOffCenterLH(&proj, 0, vp_width, 0, vp_height, 0, 1);
    dev->SetTransform(D3DTS_PROJECTION, &proj);
    set_cg_mvp(pass, proj);
 

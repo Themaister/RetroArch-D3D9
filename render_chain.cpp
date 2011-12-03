@@ -810,7 +810,7 @@ void RenderChain::unbind_all()
    bound_vert.clear();
 }
 
-static inline bool validate_param_name(const std::string &name)
+static inline bool validate_param_name(const char *name)
 {
    static const char *illegal[] = {
       "PREV.",
@@ -826,7 +826,7 @@ static inline bool validate_param_name(const std::string &name)
    };
 
    for (unsigned i = 0; i < sizeof(illegal) / sizeof(illegal[0]); i++)
-      if (name.find_first_of(illegal[i]) == 0)
+      if (std::strstr(name, illegal[i]) == name)
          return false;
 
    return true;

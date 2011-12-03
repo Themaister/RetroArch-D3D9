@@ -920,7 +920,7 @@ void RenderChain::init_fvf(Pass &pass)
       else
       {
          pass.attrib_map.push_back(index);
-         decl[i] = DECL_FVF_TEXCOORD(index, 3, index - 1);
+         decl[i] = DECL_FVF_TEXCOORD(index, 3, index - (first_indice ? 1 : 0));
          index++;
       }
    }

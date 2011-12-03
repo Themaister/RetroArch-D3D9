@@ -865,11 +865,14 @@ void RenderChain::init_fvf(Pass &pass)
 
    std::vector<bool> indices(count);
 
+   unsigned first_indice = 0;
    CGparameter param = find_param_from_semantic(pass.vPrg, "POSITION");
    if (!param)
       param = find_param_from_semantic(pass.vPrg, "POSITION0");
    if (param)
    {
+      std::cerr << "[FVF]: POSITION semantic found!" << std::endl;
+      first_indice = 1;
       unsigned index = cgGetParameterResourceIndex(param);
       decl[index] = position_decl;
       indices[index] = true;
@@ -880,6 +883,8 @@ void RenderChain::init_fvf(Pass &pass)
       param = find_param_from_semantic(pass.vPrg, "TEXCOORD0");
    if (param)
    {
+      first_indice = 2;
+      std::cerr << "[FVF]: TEXCOORD0 semantic found!" << std::endl;
       unsigned index = cgGetParameterResourceIndex(param);
       decl[index] = tex_coord0;
       indices[index] = true;
@@ -888,6 +893,8 @@ void RenderChain::init_fvf(Pass &pass)
    param = find_param_from_semantic(pass.vPrg, "TEXCOORD1");
    if (param)
    {
+      first_indice = 3;
+      std::cerr << "[FVF]: TEXCOORD1 semantic found!" << std::endl;
       unsigned index = cgGetParameterResourceIndex(param);
       decl[index] = tex_coord1;
       indices[index] = true;
@@ -899,12 +906,13 @@ void RenderChain::init_fvf(Pass &pass)
       param = find_param_from_semantic(pass.vPrg, "COLOR0");
    if (param)
    {
+      std::cerr << "[FVF]: COLOR0 semantic found!" << std::endl;
       unsigned index = cgGetParameterResourceIndex(param);
       decl[index] = color;
       indices[index] = true;
    }
 
-   unsigned index = 3; // Stream {0, 1, 2} are already taken.
+   unsigned index = first_indice; // Stream {0, 1, 2} might be already taken.
    for (unsigned i = 0; i < count; i++)
    {
       if (indices[i])

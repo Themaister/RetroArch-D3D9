@@ -120,8 +120,14 @@ void D3DVideo::set_viewport(unsigned x, unsigned y, unsigned width, unsigned hei
 
    font_rect.left = x + width * 0.08;
    font_rect.right = x + width;
-   font_rect.top = y + 0.80 * height; 
+   font_rect.top = y + 0.85 * height; 
    font_rect.bottom = height;
+
+   font_rect_shifted = font_rect;
+   font_rect_shifted.left -= 2;
+   font_rect_shifted.right -= 2;
+   font_rect_shifted.top += 2;
+   font_rect_shifted.bottom += 2;
 
    final_viewport = viewport;
 }
@@ -285,9 +291,17 @@ int D3DVideo::frame(const void *frame,
       font->DrawTextA(nullptr,
             msg,
             -1,
+            &font_rect_shifted,
+            DT_LEFT,
+            ((video_info.ttf_font_color >> 2) & 0x3f3f3f) | 0xff000000);
+
+      font->DrawTextA(nullptr,
+            msg,
+            -1,
             &font_rect,
             DT_LEFT,
             video_info.ttf_font_color | 0xff000000);
+
       dev->EndScene();
    }
 

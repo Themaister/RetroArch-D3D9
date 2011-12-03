@@ -70,6 +70,7 @@ class D3DVideo
       bool init_font();
       void deinit_font();
       RECT font_rect;
+      RECT font_rect_shifted;
 
       void update_title();
       std::wstring title;

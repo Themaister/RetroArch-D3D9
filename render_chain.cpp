@@ -847,9 +847,9 @@ static inline CGparameter find_param_from_semantic(CGparameter param, const std:
          if (cgGetParameterSemantic(param) &&
                sem == cgGetParameterSemantic(param) &&
                cgGetParameterDirection(param) == CG_IN &&
-               cgGetParameterVariability(param) == CG_VARYING && validate_param_name(cgGetParameterName(param)))
+               cgGetParameterVariability(param) == CG_VARYING &&
+               validate_param_name(cgGetParameterName(param)))
          {
-            std::cerr << "Found semantic: " << sem << " for param: " << cgGetParameterName(param) << std::endl;
             return param;
          }
       }

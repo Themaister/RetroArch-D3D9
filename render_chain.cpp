@@ -549,7 +549,7 @@ void RenderChain::render_pass(Pass &pass, unsigned pass_index)
          pass.info.filter_linear ? D3DTEXF_LINEAR : D3DTEXF_POINT);
 
    dev->SetVertexDeclaration(pass.vertex_decl);
-   for (unsigned i = 0; i < 3; i++)
+   for (unsigned i = 0; i < 4; i++)
       dev->SetStreamSource(i, pass.vertex_buf, 0, sizeof(Vertex));
 
    bind_orig(pass);
@@ -880,8 +880,7 @@ void RenderChain::init_fvf(Pass &pass)
    static const D3DVERTEXELEMENT9 position_decl = DECL_FVF_POSITION(0);
    static const D3DVERTEXELEMENT9 tex_coord0 = DECL_FVF_TEXCOORD(1, 3, 0);
    static const D3DVERTEXELEMENT9 tex_coord1 = DECL_FVF_TEXCOORD(2, 5, 1);
-   // Dummy, not really used.
-   static const D3DVERTEXELEMENT9 color = DECL_FVF_COLOR(0, 3, 0);
+   static const D3DVERTEXELEMENT9 color = DECL_FVF_COLOR(3, 3, 0);
 
    D3DVERTEXELEMENT9 decl[MAXD3DDECLLENGTH] = {{0}};
    if (cgD3D9GetVertexDeclaration(pass.vPrg, decl) == CG_FALSE)
@@ -900,9 +899,13 @@ void RenderChain::init_fvf(Pass &pass)
    // Stream 0 => POSITION
    // Stream 1 => TEXCOORD0
    // Stream 2 => TEXCOORD1
-   // Stream {3..N} => Texture coord streams for varying resources which have no semantics.
+   // Stream 3 => COLOR // Not really used for anything.
+   // Stream {4..N} => Texture coord streams for varying resources which have no semantics.
 
    std::vector<bool> indices(count);
+   bool texcoord0_taken = false;
+   bool texcoord1_taken = false;
+   bool stream_taken[4] = {false};
 
    unsigned first_indice = 0;
    CGparameter param = find_param_from_semantic(pass.vPrg, "POSITION");
@@ -910,6 +913,7 @@ void RenderChain::init_fvf(Pass &pass)
       param = find_param_from_semantic(pass.vPrg, "POSITION0");
    if (param)
    {
+      stream_taken[0] = true;
       first_indice = 1;
       std::cerr << "[FVF]: POSITION semantic found!" << std::endl;
       unsigned index = cgGetParameterResourceIndex(param);
@@ -922,6 +926,8 @@ void RenderChain::init_fvf(Pass &pass)
       param = find_param_from_semantic(pass.vPrg, "TEXCOORD0");
    if (param)
    {
+      stream_taken[1] = true;
+      texcoord0_taken = true;
       first_indice = 2;
       std::cerr << "[FVF]: TEXCOORD0 semantic found!" << std::endl;
       unsigned index = cgGetParameterResourceIndex(param);
@@ -932,6 +938,8 @@ void RenderChain::init_fvf(Pass &pass)
    param = find_param_from_semantic(pass.vPrg, "TEXCOORD1");
    if (param)
    {
+      stream_taken[2] = true;
+      texcoord1_taken = true;
       first_indice = 3;
       std::cerr << "[FVF]: TEXCOORD1 semantic found!" << std::endl;
       unsigned index = cgGetParameterResourceIndex(param);
@@ -939,19 +947,32 @@ void RenderChain::init_fvf(Pass &pass)
       indices[index] = true;
    }
 
-   // A dummy.
    param = find_param_from_semantic(pass.vPrg, "COLOR");
    if (!param)
       param = find_param_from_semantic(pass.vPrg, "COLOR0");
    if (param)
    {
+      stream_taken[3] = true;
+      first_indice = 4;
       std::cerr << "[FVF]: COLOR0 semantic found!" << std::endl;
       unsigned index = cgGetParameterResourceIndex(param);
       decl[index] = color;
       indices[index] = true;
    }
 
-   unsigned index = first_indice; // Stream {0, 1, 2} might be already taken.
+   // Stream {0, 1, 2, 3} might be already taken. Find first vacant stream.
+   unsigned index; 
+   for (index = 0; index < 4 && stream_taken[index]; index++);
+
+   // Find first vacant texcoord declaration.
+   unsigned tex_index = 0;
+   if (texcoord0_taken && texcoord1_taken)
+      tex_index = 2;
+   else if (texcoord1_taken && !texcoord0_taken)
+      tex_index = 0;
+   else if (texcoord0_taken && !texcoord1_taken)
+      tex_index = 1;
+
    for (unsigned i = 0; i < count; i++)
    {
       if (indices[i])
@@ -959,8 +980,16 @@ void RenderChain::init_fvf(Pass &pass)
       else
       {
          pass.attrib_map.push_back(index);
-         decl[i] = DECL_FVF_TEXCOORD(index, 3, index - (first_indice ? 1 : 0));
+         decl[i] = DECL_FVF_TEXCOORD(index, 3, tex_index);
+
+         // Find next vacant stream.
          index++;
+         while (index < 4 && stream_taken[index]) index++;
+
+         // Find next vacant texcoord declaration.
+         tex_index++;
+         if (tex_index == 1 && texcoord1_taken)
+            tex_index++;
       }
    }
 

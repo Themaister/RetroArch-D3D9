@@ -763,6 +763,8 @@ void RenderChain::bind_pass(Pass &pass, unsigned pass_index)
                passes[i].info.filter_linear ? D3DTEXF_LINEAR : D3DTEXF_POINT);
          dev->SetSamplerState(index, D3DSAMP_MINFILTER,
                passes[i].info.filter_linear ? D3DTEXF_LINEAR : D3DTEXF_POINT);
+         dev->SetSamplerState(index, D3DSAMP_ADDRESSU, D3DTADDRESS_BORDER);
+         dev->SetSamplerState(index, D3DSAMP_ADDRESSV, D3DTADDRESS_BORDER);
       }
 
       param = cgGetNamedParameter(pass.vPrg, attr_tex_coord.c_str());

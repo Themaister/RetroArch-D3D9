@@ -209,7 +209,7 @@ int DirectInput::state(const struct ssnes_keybind* bind, unsigned player_)
 
    int player = joypad_indices[player_ - 1];
 
-   if (player < 0 || player >= joypad.size() || !joypad[player])
+   if (player < 0 || player >= static_cast<int>(joypad.size()) || !joypad[player])
       return 0;
 
    if (bind->joykey != SSNES_NO_BTN)

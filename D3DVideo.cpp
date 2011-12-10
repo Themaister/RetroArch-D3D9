@@ -29,9 +29,8 @@ namespace Callback
                   return 0;
             }
             break;
-         case WM_QUIT:
+
          case WM_DESTROY:
-            PostQuitMessage(0);
             quit = true;
             return 0;
 
@@ -72,19 +71,9 @@ void D3DVideo::make_d3dpp(const ssnes_video_info_t &info, D3DPRESENT_PARAMETERS 
 {
    ZeroMemory(&d3dpp, sizeof(d3dpp));
 
-#if 0
-   if (std::getenv("SSNES_WINDOWED_FULLSCREEN"))
-   {
-      std::cerr << "[Direct3D]: Windowed fullscreen env var detected!" << std::endl;
-      d3dpp.Windowed = true;
-   }
-   else
-      d3dpp.Windowed = !info.fullscreen;
-#else
    d3dpp.Windowed = true;
-#endif
 
-   d3dpp.PresentationInterval = (info.vsync && !dwm.active) ? D3DPRESENT_INTERVAL_ONE : D3DPRESENT_INTERVAL_IMMEDIATE;
+   d3dpp.PresentationInterval = info.vsync ? D3DPRESENT_INTERVAL_ONE : D3DPRESENT_INTERVAL_IMMEDIATE;
    d3dpp.SwapEffect = D3DSWAPEFFECT_DISCARD;
    d3dpp.hDeviceWindow = hWnd;
    d3dpp.BackBufferCount = 2;
@@ -134,6 +123,12 @@ void D3DVideo::set_viewport(unsigned x, unsigned y, unsigned width, unsigned hei
    font_rect.top = y + 0.85 * height; 
    font_rect.bottom = height;
 
+   font_rect_shifted = font_rect;
+   font_rect_shifted.left -= 2;
+   font_rect_shifted.right -= 2;
+   font_rect_shifted.top += 2;
+   font_rect_shifted.bottom += 2;
+
    final_viewport = viewport;
 }
 
@@ -164,8 +159,6 @@ void D3DVideo::calculate_rect(unsigned width, unsigned height, bool keep, float 
 D3DVideo::D3DVideo(const ssnes_video_info_t *info) : 
    g_pD3D(nullptr), dev(nullptr), needs_restore(false), frames(0)
 {
-   init_dwm();
-
    ZeroMemory(&windowClass, sizeof(windowClass));
    windowClass.cbSize = sizeof(windowClass);
    windowClass.style = CS_HREDRAW | CS_VREDRAW;
@@ -208,7 +201,7 @@ D3DVideo::D3DVideo(const ssnes_video_info_t *info) :
    hWnd = CreateWindowEx(0, L"SSNESWindowClass", title.c_str(), 
          info->fullscreen ?
          (WS_EX_TOPMOST | WS_POPUP) : WS_OVERLAPPEDWINDOW & ~(WS_MAXIMIZEBOX | WS_THICKFRAME), 
-         info->fullscreen ? 0 : 200, info->fullscreen ? 0 : 200, win_width, win_height,
+         info->fullscreen ? 0 : CW_USEDEFAULT, info->fullscreen ? 0 : CW_USEDEFAULT, win_width, win_height,
          nullptr, nullptr, nullptr, nullptr);
 
    Global::hwnd = hWnd;
@@ -258,8 +251,6 @@ D3DVideo::~D3DVideo()
    DestroyWindow(hWnd);
    UnregisterClass(L"SSNESWindowClass", GetModuleHandle(nullptr));
    Global::hwnd = NULL;
-
-   deinit_dwm();
 }
 
 #define BLACK D3DCOLOR_XRGB(0, 0, 0)
@@ -300,9 +291,17 @@ int D3DVideo::frame(const void *frame,
       font->DrawTextA(nullptr,
             msg,
             -1,
+            &font_rect_shifted,
+            DT_LEFT,
+            ((video_info.ttf_font_color >> 2) & 0x3f3f3f) | 0xff000000);
+
+      font->DrawTextA(nullptr,
+            msg,
+            -1,
             &font_rect,
             DT_LEFT,
             video_info.ttf_font_color | 0xff000000);
+
       dev->EndScene();
    }
 
@@ -314,21 +313,13 @@ int D3DVideo::frame(const void *frame,
 
    update_title();
 
-   if (dwm.active && video_info.vsync)
-      dwm.dwm_flush();
-
    return SSNES_OK;
 }
 
 void D3DVideo::set_nonblock_state(int state)
 {
    video_info.vsync = !state;
-
-   if (!dwm.active)
-   {
-      // Very heavy way to set VSync, but hey ;)
-      restore();
-   }
+   restore();
 }
 
 int D3DVideo::alive()
@@ -339,7 +330,7 @@ int D3DVideo::alive()
 
 int D3DVideo::focus() const
 {
-   return !Callback::quit;
+   return GetFocus() == hwnd();
 }
 
 void D3DVideo::process()
@@ -754,37 +745,5 @@ void D3DVideo::update_title()
 
       SetWindowText(hWnd, tmp.c_str());
    }
-}
-
-void D3DVideo::init_dwm()
-{
-   dwm.active = false;
-#ifdef DWM_FLIPPING // Doesn't appear to work as intended yet.
-   dwm.lib = LoadLibraryA("dwmapi.dll");
-   if (dwm.lib)
-   {
-      dwm.dwm_flush = (HRESULT (*WINAPI)())GetProcAddress(dwm.lib, "DwmFlush");
-      auto is_enabled = (HRESULT (*WINAPI)(BOOL *))GetProcAddress(dwm.lib, "DwmIsCompositionEnabled");
-      if (!is_enabled)
-         std::cerr << "[Direct3D]: Couldn't find DwmIsCompositionEnabled" << std::endl;
-      else
-      {
-         BOOL val;
-         is_enabled(&val);
-         dwm.active = val;
-      }
-   }
-   else
-      std::cerr << "[Direct3D]: DWM flipping not enabled!" << std::endl;
-
-   if (dwm.active)
-      std::cerr << "[Direct3D: DWM flipping activated!" << std::endl;
-#endif
-}
-
-void D3DVideo::deinit_dwm()
-{
-   if (dwm.lib)
-      FreeLibrary(dwm.lib);
 }
 

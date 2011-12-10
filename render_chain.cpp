@@ -568,9 +568,9 @@ void RenderChain::render_pass(Pass &pass, unsigned pass_index)
    // So we don't render with linear filter into render targets,
    // which apparently looked odd (too blurry).
    dev->SetSamplerState(0, D3DSAMP_MINFILTER,
-         D3DTEXF_NONE);
+         D3DTEXF_POINT);
    dev->SetSamplerState(0, D3DSAMP_MAGFILTER,
-         D3DTEXF_NONE);
+         D3DTEXF_POINT);
 
    unbind_all();
 }
@@ -797,9 +797,9 @@ void RenderChain::unbind_all()
    for (unsigned i = 0; i < bound_tex.size(); i++)
    {
       dev->SetSamplerState(bound_tex[i], D3DSAMP_MAGFILTER,
-            D3DTEXF_NONE);
+            D3DTEXF_POINT);
       dev->SetSamplerState(bound_tex[i], D3DSAMP_MINFILTER,
-            D3DTEXF_NONE);
+            D3DTEXF_POINT);
       dev->SetTexture(bound_tex[i], nullptr);
    }
 

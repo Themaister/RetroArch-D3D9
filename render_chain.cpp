@@ -290,7 +290,6 @@ void RenderChain::create_first_pass(const LinkInfo &info, PixelFormat fmt)
             info.filter_linear ? D3DTEXF_LINEAR : D3DTEXF_POINT);
       dev->SetSamplerState(0, D3DSAMP_ADDRESSU, D3DTADDRESS_BORDER);
       dev->SetSamplerState(0, D3DSAMP_ADDRESSV, D3DTADDRESS_BORDER);
-      //dev->SetRenderState(D3DRS_LIGHTING, FALSE);
       dev->SetTexture(0, nullptr);
    }
 
@@ -640,6 +639,8 @@ void RenderChain::bind_orig(Pass &pass)
             passes[0].info.filter_linear ? D3DTEXF_LINEAR : D3DTEXF_POINT);
       dev->SetSamplerState(index, D3DSAMP_MINFILTER,
             passes[0].info.filter_linear ? D3DTEXF_LINEAR : D3DTEXF_POINT);
+      dev->SetSamplerState(index, D3DSAMP_ADDRESSU, D3DTADDRESS_BORDER);
+      dev->SetSamplerState(index, D3DSAMP_ADDRESSV, D3DTADDRESS_BORDER);
       bound_tex.push_back(index);
    }
 
@@ -702,6 +703,8 @@ void RenderChain::bind_prev(Pass &pass)
                passes[0].info.filter_linear ? D3DTEXF_LINEAR : D3DTEXF_POINT);
          dev->SetSamplerState(index, D3DSAMP_MINFILTER,
                passes[0].info.filter_linear ? D3DTEXF_LINEAR : D3DTEXF_POINT);
+         dev->SetSamplerState(index, D3DSAMP_ADDRESSU, D3DTADDRESS_BORDER);
+         dev->SetSamplerState(index, D3DSAMP_ADDRESSV, D3DTADDRESS_BORDER);
       }
 
       param = cgGetNamedParameter(pass.vPrg, attr_coord);
@@ -785,6 +788,8 @@ void RenderChain::bind_luts(Pass &pass)
                luts[i].smooth ? D3DTEXF_LINEAR : D3DTEXF_POINT);
          dev->SetSamplerState(index, D3DSAMP_MINFILTER,
                luts[i].smooth ? D3DTEXF_LINEAR : D3DTEXF_POINT);
+         dev->SetSamplerState(index, D3DSAMP_ADDRESSU, D3DTADDRESS_BORDER);
+         dev->SetSamplerState(index, D3DSAMP_ADDRESSV, D3DTADDRESS_BORDER);
          bound_tex.push_back(index);
       }
    }

@@ -148,7 +148,7 @@ DirectInput::DirectInput(const int joypad_index[5], float threshold) :
    keyboard->SetCooperativeLevel(D3DVideo::hwnd(), DISCL_NONEXCLUSIVE | DISCL_FOREGROUND);
    if (FAILED(keyboard->Acquire()))
    {
-      throw std::runtime_error("Failed to aquire keyboard");
+      throw std::runtime_error("Failed to acquire keyboard");
    }
 
    ctx->EnumDevices(DI8DEVCLASS_GAMECTRL, Callback::EnumJoypad, reinterpret_cast<void*>(this), DIEDFL_ATTACHEDONLY);

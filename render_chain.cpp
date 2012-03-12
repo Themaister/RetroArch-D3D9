@@ -473,7 +473,7 @@ void RenderChain::set_cg_params(Pass &pass,
 void RenderChain::clear_texture(Pass &pass)
 {
    D3DLOCKED_RECT d3dlr;
-   if (SUCCEEDED(pass.tex->LockRect(0, &d3dlr, NULL, D3DLOCK_NOSYSLOCK)))
+   if (SUCCEEDED(pass.tex->LockRect(0, &d3dlr, nullptr, D3DLOCK_NOSYSLOCK)))
    {
       std::memset(d3dlr.pBits, 0, pass.info.tex_h * d3dlr.Pitch);
       pass.tex->UnlockRect(0);

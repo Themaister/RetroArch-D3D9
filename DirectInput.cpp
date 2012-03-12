@@ -133,13 +133,13 @@ DirectInput::DirectInput(const int joypad_index[5], float threshold) :
    std::memset(joy_state, 0, sizeof(joy_state));
 
    if (FAILED(DirectInput8Create(
-               GetModuleHandle(NULL), DIRECTINPUT_VERSION, IID_IDirectInput8, 
-               reinterpret_cast<void**>(&ctx), NULL)))
+               GetModuleHandle(nullptr), DIRECTINPUT_VERSION, IID_IDirectInput8, 
+               reinterpret_cast<void**>(&ctx), nullptr)))
    {
       throw std::runtime_error("Failed to init DInput8");
    }
 
-   if (FAILED(ctx->CreateDevice(GUID_SysKeyboard, &keyboard, NULL)))
+   if (FAILED(ctx->CreateDevice(GUID_SysKeyboard, &keyboard, nullptr)))
    {
       throw std::runtime_error("Failed to init input device");
    }
@@ -164,7 +164,7 @@ DirectInput::DirectInput(const int joypad_index[5], float threshold) :
 BOOL DirectInput::init_joypad(const DIDEVICEINSTANCE *instance)
 {
    IDirectInputDevice8 *dev = nullptr;
-   if (FAILED(ctx->CreateDevice(instance->guidInstance, &dev, NULL)))
+   if (FAILED(ctx->CreateDevice(instance->guidInstance, &dev, nullptr)))
    {
       joypad.push_back(nullptr);
       return DIENUM_CONTINUE;

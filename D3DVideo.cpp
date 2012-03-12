@@ -43,7 +43,7 @@ namespace Callback
 
 namespace Global
 {
-   static HWND hwnd = NULL;
+   static HWND hwnd = nullptr;
 }
 
 void D3DVideo::init_base(const ssnes_video_info_t &info)
@@ -163,8 +163,8 @@ D3DVideo::D3DVideo(const ssnes_video_info_t *info) :
    windowClass.cbSize = sizeof(windowClass);
    windowClass.style = CS_HREDRAW | CS_VREDRAW;
    windowClass.lpfnWndProc = Callback::WindowProc;
-   windowClass.hInstance = NULL;
-   windowClass.hCursor = LoadCursor(NULL, IDC_ARROW);
+   windowClass.hInstance = nullptr;
+   windowClass.hCursor = LoadCursor(nullptr, IDC_ARROW);
    windowClass.lpszClassName = L"SSNESWindowClass";
    if (!info->fullscreen)
       windowClass.hbrBackground = (HBRUSH)COLOR_WINDOW;
@@ -250,7 +250,7 @@ D3DVideo::~D3DVideo()
 
    DestroyWindow(hWnd);
    UnregisterClass(L"SSNESWindowClass", GetModuleHandle(nullptr));
-   Global::hwnd = NULL;
+   Global::hwnd = nullptr;
 }
 
 #define BLACK D3DCOLOR_XRGB(0, 0, 0)
@@ -336,7 +336,7 @@ int D3DVideo::focus() const
 void D3DVideo::process()
 {
    MSG msg;
-   while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
+   while (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE))
    {
       TranslateMessage(&msg);
       DispatchMessage(&msg);

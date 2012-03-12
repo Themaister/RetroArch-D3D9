@@ -12,7 +12,7 @@ class ConfigFile
       {
          conf = config_file_new(path.c_str());
          if (!conf)
-            conf = config_file_new(NULL);
+            conf = config_file_new(nullptr);
       }
 
       ConfigFile(const ConfigFile&) = delete;
@@ -28,7 +28,7 @@ class ConfigFile
                config_file_write(conf, path.c_str());
             config_file_free(conf); 
             conf = _in.conf; 
-            _in.conf = NULL;
+            _in.conf = nullptr;
             path = _in.path;
          }
          return *this;

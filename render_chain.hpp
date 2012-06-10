@@ -48,7 +48,7 @@ class RenderChain
             const std::vector<std::string> &uniforms);
 
       bool render(const void *data,
-            unsigned width, unsigned height, unsigned pitch);
+            unsigned width, unsigned height, unsigned pitch, unsigned rotation);
 
       static void convert_geometry(const LinkInfo &info,
             unsigned &out_width, unsigned &out_height,
@@ -106,7 +106,8 @@ class RenderChain
       void set_vertices(Pass &pass,
             unsigned width, unsigned height,
             unsigned out_width, unsigned out_height,
-            unsigned vp_width, unsigned vp_height);
+            unsigned vp_width, unsigned vp_height,
+            unsigned rotation);
       void set_viewport(const D3DVIEWPORT9 &vp);
 
       void set_shaders(Pass &pass);

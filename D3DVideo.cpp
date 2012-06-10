@@ -132,21 +132,61 @@ void D3DVideo::set_viewport(unsigned x, unsigned y, unsigned width, unsigned hei
    final_viewport = viewport;
 }
 
-void D3DVideo::set_rotation(unsigned)
-{}
+void D3DVideo::set_rotation(unsigned rot)
+{
+   rotation = rot;
+}
 
 void D3DVideo::viewport_size(unsigned &width, unsigned &height)
 {
-   width  = 0;
-   height = 0;
+   width  = final_viewport.Width;
+   height = final_viewport.Height;
 }
 
-bool D3DVideo::read_viewport(uint8_t *)
+bool D3DVideo::read_viewport(uint8_t *buffer)
 {
-   return false;
+   bool ret = true;
+   IDirect3DSurface9 *target = nullptr;
+   IDirect3DSurface9 *dest = nullptr;
+
+   dev->GetRenderTarget(0, &target);
+   dev->CreateOffscreenPlainSurface(screen_width, screen_height,
+        D3DFMT_X8R8G8B8, D3DPOOL_SYSTEMMEM,
+        &dest, nullptr);
+
+   dev->GetRenderTargetData(target, dest);
+
+   D3DLOCKED_RECT rect;
+   dest->LockRect(&rect, nullptr, D3DLOCK_READONLY);
+
+   unsigned pitchpix = rect.Pitch / 4;
+   const uint32_t *pixels = (const uint32_t*)rect.pBits;
+   pixels += final_viewport.X;
+   pixels += (final_viewport.Height - 1) * pitchpix;
+   pixels -= final_viewport.Y * pitchpix;
+
+   for (unsigned y = 0; y < final_viewport.Height; y++, pixels -= pitchpix)
+   {
+      for (unsigned x = 0; x < final_viewport.Width; x++)
+      {
+         *buffer++ = (pixels[x] >>  0) & 0xff;
+         *buffer++ = (pixels[x] >>  8) & 0xff;
+         *buffer++ = (pixels[x] >> 16) & 0xff;
+      }
+   }
+
+   dest->UnlockRect();
+
+end:
+   if (target)
+      target->Release();
+   if (dest)
+      dest->Release();
+   return ret;
 }
 
-void D3DVideo::calculate_rect(unsigned width, unsigned height, bool keep, float desired_aspect)
+void D3DVideo::calculate_rect(unsigned width, unsigned height,
+   bool keep, float desired_aspect)
 {
    if (!keep)
    {
@@ -171,7 +211,7 @@ void D3DVideo::calculate_rect(unsigned width, unsigned height, bool keep, float 
 }
 
 D3DVideo::D3DVideo(const rarch_video_info_t *info) : 
-   g_pD3D(nullptr), dev(nullptr), needs_restore(false), frames(0)
+   g_pD3D(nullptr), dev(nullptr), rotation(0), needs_restore(false), frames(0)
 {
    ZeroMemory(&windowClass, sizeof(windowClass));
    windowClass.cbSize = sizeof(windowClass);
@@ -297,7 +337,7 @@ int D3DVideo::frame(const void *frame,
       return RARCH_ERROR;
    }
 
-   if (!chain->render(frame, width, height, pitch))
+   if (!chain->render(frame, width, height, pitch, rotation))
       return RARCH_FALSE;
 
    if (msg && SUCCEEDED(dev->BeginScene()))

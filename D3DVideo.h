@@ -45,6 +45,7 @@ class D3DVideo
       void set_viewport(unsigned x, unsigned y, unsigned width, unsigned height);
       unsigned screen_width;
       unsigned screen_height;
+      unsigned rotation;
       D3DVIEWPORT9 final_viewport;
 
       void process();

@@ -174,7 +174,7 @@ void RenderChain::end_render()
 }
 
 bool RenderChain::render(const void *data,
-      unsigned width, unsigned height, unsigned pitch)
+      unsigned width, unsigned height, unsigned pitch, unsigned rotation)
 {
    start_render();
 
@@ -215,7 +215,7 @@ bool RenderChain::render(const void *data,
       set_vertices(from_pass,
             current_width, current_height,
             out_width, out_height,
-            out_width, out_height);
+            out_width, out_height, 0);
 
       render_pass(from_pass, i + 1);
 
@@ -235,7 +235,8 @@ bool RenderChain::render(const void *data,
    set_vertices(last_pass,
             current_width, current_height,
             out_width, out_height,
-            final_viewport.Width, final_viewport.Height);
+            final_viewport.Width, final_viewport.Height,
+            rotation);
    render_pass(last_pass, passes.size());
 
    frame_count++;
@@ -354,7 +355,8 @@ void RenderChain::set_shaders(Pass &pass)
 void RenderChain::set_vertices(Pass &pass,
       unsigned width, unsigned height,
       unsigned out_width, unsigned out_height,
-      unsigned vp_width, unsigned vp_height)
+      unsigned vp_width, unsigned vp_height,
+      unsigned rotation)
 {
    const LinkInfo &info = pass.info;
 
@@ -409,8 +411,16 @@ void RenderChain::set_vertices(Pass &pass,
       pass.vertex_buf->Unlock();
    }
 
-   D3DXMATRIX proj;
-   D3DXMatrixOrthoOffCenterLH(&proj, 0, vp_width, 0, vp_height, 0, 1);
+   D3DXMATRIX proj, ortho, rot;
+   D3DXMatrixOrthoOffCenterLH(&ortho, 0, vp_width, 0, vp_height, 0, 1);
+
+   if (rotation)
+      D3DXMatrixRotationZ(&rot, rotation * (M_PI / 2.0));
+   else
+      D3DXMatrixIdentity(&rot);
+
+   D3DXMatrixMultiply(&proj, &rot, &ortho);
+
    dev->SetTransform(D3DTS_PROJECTION, &proj);
    set_cg_mvp(pass, proj);
 

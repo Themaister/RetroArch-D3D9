@@ -419,9 +419,8 @@ void RenderChain::set_vertices(Pass &pass,
    else
       D3DXMatrixIdentity(&rot);
 
-   D3DXMatrixMultiply(&proj, &rot, &ortho);
+   D3DXMatrixMultiply(&proj, &ortho, &rot);
 
-   dev->SetTransform(D3DTS_PROJECTION, &proj);
    set_cg_mvp(pass, proj);
 
    set_cg_params(pass,

@@ -147,35 +147,54 @@ bool D3DVideo::read_viewport(uint8_t *buffer)
 {
    bool ret = true;
    IDirect3DSurface9 *target = nullptr;
-   IDirect3DSurface9 *dest = nullptr;
+   IDirect3DSurface9 *dest   = nullptr;
 
-   dev->GetRenderTarget(0, &target);
-   dev->CreateOffscreenPlainSurface(screen_width, screen_height,
-        D3DFMT_X8R8G8B8, D3DPOOL_SYSTEMMEM,
-        &dest, nullptr);
-
-   dev->GetRenderTargetData(target, dest);
-
-   D3DLOCKED_RECT rect;
-   dest->LockRect(&rect, nullptr, D3DLOCK_READONLY);
-
-   unsigned pitchpix = rect.Pitch / 4;
-   const uint32_t *pixels = (const uint32_t*)rect.pBits;
-   pixels += final_viewport.X;
-   pixels += (final_viewport.Height - 1) * pitchpix;
-   pixels -= final_viewport.Y * pitchpix;
-
-   for (unsigned y = 0; y < final_viewport.Height; y++, pixels -= pitchpix)
+   if (FAILED(dev->GetRenderTarget(0, &target)))
    {
-      for (unsigned x = 0; x < final_viewport.Width; x++)
-      {
-         *buffer++ = (pixels[x] >>  0) & 0xff;
-         *buffer++ = (pixels[x] >>  8) & 0xff;
-         *buffer++ = (pixels[x] >> 16) & 0xff;
-      }
+      ret = false;
+      goto end;
    }
 
-   dest->UnlockRect();
+   if (FAILED(dev->CreateOffscreenPlainSurface(screen_width, screen_height,
+        D3DFMT_X8R8G8B8, D3DPOOL_SYSTEMMEM,
+        &dest, nullptr)))
+   {
+      ret = false;
+      goto end;
+   }
+
+   if (FAILED(dev->GetRenderTargetData(target, dest)))
+   {
+      ret = false;
+      goto end;
+   }
+
+   D3DLOCKED_RECT rect;
+   if (SUCCEEDED(dest->LockRect(&rect, nullptr, D3DLOCK_READONLY)))
+   {
+      unsigned pitchpix = rect.Pitch / 4;
+      const uint32_t *pixels = (const uint32_t*)rect.pBits;
+      pixels += final_viewport.X;
+      pixels += (final_viewport.Height - 1) * pitchpix;
+      pixels -= final_viewport.Y * pitchpix;
+
+      for (unsigned y = 0; y < final_viewport.Height; y++, pixels -= pitchpix)
+      {
+         for (unsigned x = 0; x < final_viewport.Width; x++)
+         {
+            *buffer++ = (pixels[x] >>  0) & 0xff;
+            *buffer++ = (pixels[x] >>  8) & 0xff;
+            *buffer++ = (pixels[x] >> 16) & 0xff;
+         }
+      }
+
+      dest->UnlockRect();
+   }
+   else
+   {
+      ret = false;
+      goto end;
+   }
 
 end:
    if (target)
@@ -189,9 +208,7 @@ void D3DVideo::calculate_rect(unsigned width, unsigned height,
    bool keep, float desired_aspect)
 {
    if (!keep)
-   {
       set_viewport(0, 0, width, height);
-   }
    else
    {
       float device_aspect = static_cast<float>(width) / static_cast<float>(height);

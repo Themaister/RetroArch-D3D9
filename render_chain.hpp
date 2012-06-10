@@ -34,7 +34,7 @@ class RenderChain
    public:
       enum PixelFormat { RGB15, ARGB };
 
-      RenderChain(const ssnes_video_info_t &video_info,
+      RenderChain(const rarch_video_info_t &video_info,
             IDirect3DDevice9 *dev,
             CGcontext cgCtx,
             const LinkInfo &info,
@@ -62,7 +62,7 @@ class RenderChain
       CGcontext cgCtx;
       unsigned pixel_size;
 
-      const ssnes_video_info_t &video_info;
+      const rarch_video_info_t &video_info;
 
       std::unique_ptr<StateTracker> tracker;
 

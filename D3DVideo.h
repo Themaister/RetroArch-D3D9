@@ -18,7 +18,7 @@ class RenderChain;
 class D3DVideo
 {
    public:
-      D3DVideo(const ssnes_video_info_t* info);
+      D3DVideo(const rarch_video_info_t* info);
       int frame(const void* frame, 
             unsigned width, unsigned height, unsigned pitch,
             const char *msg);
@@ -27,6 +27,9 @@ class D3DVideo
       int alive();
       int focus() const;
       void set_nonblock_state(int state);
+      void set_rotation(unsigned rot);
+      void viewport_size(unsigned &width, unsigned &height);
+      bool read_viewport(uint8_t *buffer);
 
       static HWND hwnd();
 
@@ -46,11 +49,11 @@ class D3DVideo
 
       void process();
 
-      void init(const ssnes_video_info_t &info);
-      void init_base(const ssnes_video_info_t &info);
-      void make_d3dpp(const ssnes_video_info_t &info, D3DPRESENT_PARAMETERS &d3dpp);
+      void init(const rarch_video_info_t &info);
+      void init_base(const rarch_video_info_t &info);
+      void make_d3dpp(const rarch_video_info_t &info, D3DPRESENT_PARAMETERS &d3dpp);
       void deinit();
-      ssnes_video_info_t video_info;
+      rarch_video_info_t video_info;
 
       bool needs_restore;
       bool restore();
@@ -61,9 +64,9 @@ class D3DVideo
 
       void init_imports(ConfigFile &conf, const std::string &basedir);
       void init_luts(ConfigFile &conf, const std::string &basedir);
-      void init_chain_singlepass(const ssnes_video_info_t &video_info);
-      void init_chain_multipass(const ssnes_video_info_t &video_info);
-      bool init_chain(const ssnes_video_info_t &video_info);
+      void init_chain_singlepass(const rarch_video_info_t &video_info);
+      void init_chain_multipass(const rarch_video_info_t &video_info);
+      bool init_chain(const rarch_video_info_t &video_info);
       std::unique_ptr<RenderChain> chain;
       void deinit_chain();
 

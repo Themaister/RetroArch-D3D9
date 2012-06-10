@@ -6,7 +6,7 @@
 StateTracker::StateTracker(const std::string &program,
       const std::string &py_class,
       const std::vector<std::string> &uniforms,
-      const ssnes_video_info_t &info)
+      const rarch_video_info_t &info)
       : handle(nullptr), info(info), uniforms(uniforms)
 {
    if (!info.python_state_new)

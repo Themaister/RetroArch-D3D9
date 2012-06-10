@@ -30,7 +30,7 @@ RenderChain::~RenderChain()
    clear();
 }
 
-RenderChain::RenderChain(const ssnes_video_info_t &video_info,
+RenderChain::RenderChain(const rarch_video_info_t &video_info,
       IDirect3DDevice9 *dev_,
       CGcontext cgCtx_,
       const LinkInfo &info, PixelFormat fmt,

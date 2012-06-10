@@ -8,9 +8,9 @@
 class DirectInput
 {
    public:
-      DirectInput(const int joypad_index[5], float axis_thres);
+      DirectInput(const int joypad_index[8], float axis_thres);
       ~DirectInput();
-      int state(const struct ssnes_keybind* bind, unsigned player);
+      int state(const struct rarch_keybind* bind, unsigned player);
       void poll();
 
       BOOL init_joypad(const DIDEVICEINSTANCE *instance);
@@ -20,8 +20,8 @@ class DirectInput
       IDirectInput8 *ctx;
       IDirectInputDevice8 *keyboard;
 
-      int joypad_indices[5];
-      DIJOYSTATE2 joy_state[5];
+      int joypad_indices[8];
+      DIJOYSTATE2 joy_state[8];
 
       std::vector<IDirectInputDevice8*> joypad;
 

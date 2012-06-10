@@ -46,7 +46,7 @@ namespace Global
    static HWND hwnd = nullptr;
 }
 
-void D3DVideo::init_base(const ssnes_video_info_t &info)
+void D3DVideo::init_base(const rarch_video_info_t &info)
 {
    D3DPRESENT_PARAMETERS d3dpp;
    make_d3dpp(info, d3dpp);
@@ -67,7 +67,7 @@ void D3DVideo::init_base(const ssnes_video_info_t &info)
    }
 }
 
-void D3DVideo::make_d3dpp(const ssnes_video_info_t &info, D3DPRESENT_PARAMETERS &d3dpp)
+void D3DVideo::make_d3dpp(const rarch_video_info_t &info, D3DPRESENT_PARAMETERS &d3dpp)
 {
    ZeroMemory(&d3dpp, sizeof(d3dpp));
 
@@ -86,7 +86,7 @@ void D3DVideo::make_d3dpp(const ssnes_video_info_t &info, D3DPRESENT_PARAMETERS 
    }
 }
 
-void D3DVideo::init(const ssnes_video_info_t &info)
+void D3DVideo::init(const rarch_video_info_t &info)
 {
    if (!g_pD3D)
       init_base(info);
@@ -132,6 +132,20 @@ void D3DVideo::set_viewport(unsigned x, unsigned y, unsigned width, unsigned hei
    final_viewport = viewport;
 }
 
+void D3DVideo::set_rotation(unsigned)
+{}
+
+void D3DVideo::viewport_size(unsigned &width, unsigned &height)
+{
+   width  = 0;
+   height = 0;
+}
+
+bool D3DVideo::read_viewport(uint8_t *)
+{
+   return false;
+}
+
 void D3DVideo::calculate_rect(unsigned width, unsigned height, bool keep, float desired_aspect)
 {
    if (!keep)
@@ -156,7 +170,7 @@ void D3DVideo::calculate_rect(unsigned width, unsigned height, bool keep, float 
    }
 }
 
-D3DVideo::D3DVideo(const ssnes_video_info_t *info) : 
+D3DVideo::D3DVideo(const rarch_video_info_t *info) : 
    g_pD3D(nullptr), dev(nullptr), needs_restore(false), frames(0)
 {
    ZeroMemory(&windowClass, sizeof(windowClass));
@@ -280,11 +294,11 @@ int D3DVideo::frame(const void *frame,
    if (needs_restore && !restore())
    {
       std::cerr << "[Direct3D]: Restore failed!" << std::endl;
-      return SSNES_ERROR;
+      return RARCH_ERROR;
    }
 
    if (!chain->render(frame, width, height, pitch))
-      return SSNES_FALSE;
+      return RARCH_FALSE;
 
    if (msg && SUCCEEDED(dev->BeginScene()))
    {
@@ -308,12 +322,12 @@ int D3DVideo::frame(const void *frame,
    if (dev->Present(nullptr, nullptr, nullptr, nullptr) != D3D_OK)
    {
       needs_restore = true;
-      return SSNES_OK;
+      return RARCH_OK;
    }
 
    update_title();
 
-   return SSNES_OK;
+   return RARCH_OK;
 }
 
 void D3DVideo::set_nonblock_state(int state)
@@ -369,7 +383,7 @@ void D3DVideo::deinit_cg()
    }
 }
 
-void D3DVideo::init_chain_singlepass(const ssnes_video_info_t &video_info)
+void D3DVideo::init_chain_singlepass(const rarch_video_info_t &video_info)
 {
    LinkInfo info = {0};
    info.shader_path = video_info.cg_shader ? video_info.cg_shader : "";
@@ -382,7 +396,7 @@ void D3DVideo::init_chain_singlepass(const ssnes_video_info_t &video_info)
                video_info,
                dev, cgCtx,
                info,
-               video_info.color_format == SSNES_COLOR_FORMAT_XRGB1555 ?
+               video_info.color_format == RARCH_COLOR_FORMAT_XRGB1555 ?
                RenderChain::RGB15 : RenderChain::ARGB,
                final_viewport));
 }
@@ -456,7 +470,7 @@ void D3DVideo::init_luts(ConfigFile &conf, const std::string &basedir)
    }
 }
 
-void D3DVideo::init_chain_multipass(const ssnes_video_info_t &info)
+void D3DVideo::init_chain_multipass(const rarch_video_info_t &info)
 {
    ConfigFile conf(info.cg_shader);
 
@@ -627,7 +641,7 @@ void D3DVideo::init_chain_multipass(const ssnes_video_info_t &info)
             video_info,
             dev, cgCtx,
             link_info,
-            info.color_format == SSNES_COLOR_FORMAT_XRGB1555 ?
+            info.color_format == RARCH_COLOR_FORMAT_XRGB1555 ?
             RenderChain::RGB15 : RenderChain::ARGB,
             final_viewport));
 
@@ -682,7 +696,7 @@ void D3DVideo::init_chain_multipass(const ssnes_video_info_t &info)
    init_imports(conf, basedir);
 }
 
-bool D3DVideo::init_chain(const ssnes_video_info_t &video_info)
+bool D3DVideo::init_chain(const rarch_video_info_t &video_info)
 {
    try
    {

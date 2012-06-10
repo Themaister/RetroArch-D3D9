@@ -1,4 +1,4 @@
-TARGET := SSNES-D3D9.dll
+TARGET := RetroArch-D3D9.dll
 
 CXX_SOURCES := $(wildcard *.cpp)
 C_SOURCES := $(wildcard *.c)

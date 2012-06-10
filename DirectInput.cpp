@@ -125,11 +125,11 @@ namespace Map
    };
 }
 
-DirectInput::DirectInput(const int joypad_index[5], float threshold) :
+DirectInput::DirectInput(const int joypad_index[8], float threshold) :
    ctx(nullptr), keyboard(nullptr), thres(threshold)
 {
    std::fill(di_state, di_state + 256, 0);
-   std::copy(joypad_index, joypad_index + 5, joypad_indices);
+   std::copy(joypad_index, joypad_index + 8, joypad_indices);
    std::memset(joy_state, 0, sizeof(joy_state));
 
    if (FAILED(DirectInput8Create(
@@ -180,7 +180,7 @@ BOOL DirectInput::init_joypad(const DIDEVICEINSTANCE *instance)
 
       dev->EnumObjects(Callback::EnumAxes, dev, DIDFT_ABSAXIS);
    }
-   return (joypad.size() < static_cast<size_t>(5)) ? DIENUM_CONTINUE : DIENUM_STOP;
+   return (joypad.size() < static_cast<size_t>(8)) ? DIENUM_CONTINUE : DIENUM_STOP;
 }
 
 DirectInput::~DirectInput()
@@ -201,7 +201,7 @@ DirectInput::~DirectInput()
       ctx->Release();
 }
 
-int DirectInput::state(const struct ssnes_keybind* bind, unsigned player_)
+int DirectInput::state(const struct rarch_keybind* bind, unsigned player_)
 {
    int ret = di_state[Map::sdl_to_di_lut[bind->key]] & 0x80 ? 1 : 0;
    if (ret)
@@ -212,9 +212,9 @@ int DirectInput::state(const struct ssnes_keybind* bind, unsigned player_)
    if (player < 0 || player >= static_cast<int>(joypad.size()) || !joypad[player])
       return 0;
 
-   if (bind->joykey != SSNES_NO_BTN)
+   if (bind->joykey != RARCH_NO_BTN)
    {
-      if (!SSNES_GET_HAT_DIR(bind->joykey))
+      if (!RARCH_GET_HAT_DIR(bind->joykey))
       {
          int ret = joy_state[player].rgbButtons[bind->joykey] ? 1 : 0;
          if (ret)
@@ -222,23 +222,23 @@ int DirectInput::state(const struct ssnes_keybind* bind, unsigned player_)
       }
       else
       {
-         unsigned hat = SSNES_GET_HAT(bind->joykey);
+         unsigned hat = RARCH_GET_HAT(bind->joykey);
          unsigned pov = joy_state[player].rgdwPOV[hat];
          if (pov < 36000)
          {
             bool retval = false;
-            switch (SSNES_GET_HAT_DIR(bind->joykey))
+            switch (RARCH_GET_HAT_DIR(bind->joykey))
             {
-               case SSNES_HAT_UP_MASK:
+               case RARCH_HAT_UP_MASK:
                   retval = (pov >= 31500) || (pov <= 4500);
                   break;
-               case SSNES_HAT_RIGHT_MASK:
+               case RARCH_HAT_RIGHT_MASK:
                   retval = (pov >= 4500) && (pov <= 13500);
                   break;
-               case SSNES_HAT_DOWN_MASK:
+               case RARCH_HAT_DOWN_MASK:
                   retval = (pov >= 13500) && (pov <= 22500);
                   break;
-               case SSNES_HAT_LEFT_MASK:
+               case RARCH_HAT_LEFT_MASK:
                   retval = (pov >= 22500) && (pov <= 31500);
                   break;
             }
@@ -248,12 +248,12 @@ int DirectInput::state(const struct ssnes_keybind* bind, unsigned player_)
          }
       }
    }
-   if (bind->joyaxis != SSNES_NO_AXIS)
+   if (bind->joyaxis != RARCH_NO_AXIS)
    {
       int min = static_cast<int>(-32678 * thres);
       int max = static_cast<int>(32677 * thres);
 
-      switch (SSNES_AXIS_NEG_GET(bind->joyaxis))
+      switch (RARCH_AXIS_NEG_GET(bind->joyaxis))
       {
          case 0:
             return joy_state[player].lX <= min;
@@ -269,7 +269,7 @@ int DirectInput::state(const struct ssnes_keybind* bind, unsigned player_)
             return joy_state[player].lRz <= min;
       }
 
-      switch (SSNES_AXIS_POS_GET(bind->joyaxis))
+      switch (RARCH_AXIS_POS_GET(bind->joyaxis))
       {
          case 0:
             return joy_state[player].lX >= max;
@@ -301,7 +301,7 @@ void DirectInput::poll()
 
    ZeroMemory(&joy_state, sizeof(joy_state));
 
-   size_t size = std::min(static_cast<size_t>(5), joypad.size());
+   size_t size = std::min(static_cast<size_t>(8), joypad.size());
    for (size_t i = 0; i < size; i++)
    {
       if (joypad[i])

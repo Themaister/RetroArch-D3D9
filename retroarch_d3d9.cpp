@@ -81,9 +81,14 @@ static void input_free(void *data)
    delete reinterpret_cast<DirectInput*>(data);
 }
 
-static int input_state(void *data, const struct rarch_keybind *bind, unsigned player)
+static short input_state(void *data, const struct rarch_keybind *bind, unsigned player)
 {
    return reinterpret_cast<DirectInput*>(data)->state(bind, player);
+}
+
+static short input_state_analog(void *data, unsigned joyaxis, unsigned player)
+{
+   return reinterpret_cast<DirectInput*>(data)->state_analog(joyaxis, player);
 }
 
 static void input_poll(void *data)
@@ -107,6 +112,7 @@ RARCH_API_EXPORT const rarch_video_driver_t* RARCH_API_CALLTYPE rarch_video_init
    input_driver.init = input_init;
    input_driver.free = input_free;
    input_driver.input_state = input_state;
+   input_driver.input_state_analog = input_state_analog;
    input_driver.poll = input_poll;
    input_driver.ident = "DirectInput";
    video_driver.api_version = RARCH_GRAPHICS_API_VERSION;

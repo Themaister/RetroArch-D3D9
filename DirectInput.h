@@ -11,6 +11,7 @@ class DirectInput
       DirectInput(const int joypad_index[8], float axis_thres);
       ~DirectInput();
       int state(const struct rarch_keybind* bind, unsigned player);
+      int state_analog(unsigned joyaxis, unsigned player);
       void poll();
 
       BOOL init_joypad(const DIDEVICEINSTANCE *instance);

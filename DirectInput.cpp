@@ -201,6 +201,46 @@ DirectInput::~DirectInput()
       ctx->Release();
 }
 
+int DirectInput::state_analog(unsigned joyaxis, unsigned player_)
+{
+   int player = joypad_indices[player_ - 1];
+   if (player < 0 || player >= static_cast<int>(joypad.size()) || !joypad[player])
+      return 0;
+
+   int val = 0;
+   int axis = -1;
+   bool is_neg = false;
+   bool is_pos = false;
+
+   if (RARCH_AXIS_NEG_GET(joyaxis) <= 5)
+   {
+      axis = RARCH_AXIS_NEG_GET(joyaxis);
+      is_neg = true;
+   }
+   else if (RARCH_AXIS_POS_GET(joyaxis) <= 5)
+   {
+      axis = RARCH_AXIS_POS_GET(joyaxis);
+      is_pos = true;
+   }
+
+   switch (axis)
+   {
+      case 0: val = joy_state[player].lX; break;
+      case 1: val = joy_state[player].lY; break;
+      case 2: val = joy_state[player].lZ; break;
+      case 3: val = joy_state[player].lRx; break;
+      case 4: val = joy_state[player].lRy; break;
+      case 5: val = joy_state[player].lRz; break;
+   }
+
+   if (is_neg && val > 0)
+      val = 0;
+   else if (is_pos && val < 0)
+      val = 0;
+
+   return val;
+}
+
 int DirectInput::state(const struct rarch_keybind* bind, unsigned player_)
 {
    int ret = di_state[Map::sdl_to_di_lut[bind->key]] & 0x80 ? 1 : 0;

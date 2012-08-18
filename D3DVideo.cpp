@@ -434,8 +434,8 @@ void D3DVideo::deinit_cg()
    if (cgCtx)
    {
       cgD3D9UnloadAllPrograms();
-      cgDestroyContext(cgCtx);
       cgD3D9SetDevice(nullptr);
+      cgDestroyContext(cgCtx);
       cgCtx = nullptr;
    }
 }

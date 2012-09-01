@@ -146,10 +146,7 @@ DirectInput::DirectInput(const int joypad_index[8], float threshold) :
 
    keyboard->SetDataFormat(&c_dfDIKeyboard);
    keyboard->SetCooperativeLevel(D3DVideo::hwnd(), DISCL_NONEXCLUSIVE | DISCL_FOREGROUND);
-   if (FAILED(keyboard->Acquire()))
-   {
-      throw std::runtime_error("Failed to acquire keyboard");
-   }
+   keyboard->Acquire();
 
    ctx->EnumDevices(DI8DEVCLASS_GAMECTRL, Callback::EnumJoypad, reinterpret_cast<void*>(this), DIEDFL_ATTACHEDONLY);
 
@@ -243,9 +240,12 @@ int DirectInput::state_analog(unsigned joyaxis, unsigned player_)
 
 int DirectInput::state(const struct rarch_keybind* bind, unsigned player_)
 {
-   int ret = di_state[Map::sdl_to_di_lut[bind->key]] & 0x80 ? 1 : 0;
-   if (ret)
-      return ret;
+   if (bind->key > 0 && bind->key < 1024)
+   {
+      int ret = di_state[Map::sdl_to_di_lut[bind->key]] & 0x80 ? 1 : 0;
+      if (ret)
+         return ret;
+   }
 
    int player = joypad_indices[player_ - 1];
 
